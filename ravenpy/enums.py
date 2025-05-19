@@ -100,6 +100,7 @@ class Skills(Enum):
     Healing = 14
     Gathering = 15
     Alchemy = 16
+    Melee = 900
     All = 999
 
 class Enchantments(Enum):
@@ -168,6 +169,7 @@ class Effects(Enum):
     Teleport = 31
 
 class Islands(Enum):
+    NoneIsland = -2
     Ferry = -1
     Sailing = 0
     Home = 1
