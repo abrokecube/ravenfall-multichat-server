@@ -351,7 +351,7 @@ class Character:
             self.exp_per_hour = 0
 
         self.training: Skills | None = None
-        self.island: Islands = Islands.NoneIsland
+        self.island: Islands = None
         if state['island'] != "None":
             self.island: Islands = _getitem_or_none(state['island'], Islands)
         self.destination: Islands = _getitem_or_none(state['destination'], Islands)

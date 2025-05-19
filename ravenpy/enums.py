@@ -169,7 +169,7 @@ class Effects(Enum):
     Teleport = 31
 
 class Islands(Enum):
-    NoneIsland = -2
+    # NoneIsland = -2
     Ferry = -1
     Sailing = 0
     Home = 1
