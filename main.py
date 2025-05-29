@@ -259,7 +259,76 @@ class ChatClient(twitchio.Client):
                 if channel == channel_id:
                     await self.send_chat_message(char.user_name, channel_name, '!auto raid on')
                     await asyncio.sleep(0.4)
-                
+                    
+    async def handle_dungeon_scroll(self, channel_id: str, channel_name: str):
+        user_in_channel = ""
+        for char in self.player_char_data.values():
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if channel != channel_id:
+                continue
+            if not user_in_channel:
+                user_in_channel = char.user_name
+            dscroll = char.get_item(ravenpy.Items.DungeonScroll)
+            if dscroll:
+                await self.send_chat_message(char.user_name, channel_name, '!dungeon start')
+                return
+        else:
+            await self.send_chat_message(user_in_channel, channel_name, 'Out of dungeon scrolls :(')
+            
+    async def handle_raid_scroll(self, channel_id: str, channel_name: str):
+        user_in_channel = ""
+        for char in self.player_char_data.values():
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if channel != channel_id:
+                continue
+            if not user_in_channel:
+                user_in_channel = char.user_name
+            dscroll = char.get_item(ravenpy.Items.RaidScroll)
+            if dscroll:
+                await self.send_chat_message(char.user_name, channel_name, '!raid start')
+                break
+        else:
+            await self.send_chat_message(user_in_channel, channel_name, 'Out of raid scrolls :(')
+
+    async def handle_ferry_scroll(self, channel_id: str, channel_name: str):
+        user_in_channel = ""
+        for char in self.player_char_data.values():
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if channel != channel_id:
+                continue
+            if not user_in_channel:
+                user_in_channel = char.user_name
+            dscroll = char.get_item("Ferry Scroll")
+            if dscroll:
+                await self.send_chat_message(char.user_name, channel_name, '!ferry boost')
+                break
+        else:
+            await self.send_chat_message(user_in_channel, channel_name, 'Out of ferry scrolls :(')
+            
+    async def handle_exp_scroll(self, channel_id: str, channel_name: str, scroll_count: int):
+        current_count = 0
+        user_in_channel = ""
+        for char in self.player_char_data.values():
+            if current_count >= scroll_count:
+                break
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if user_in_channel == "" and channel == channel_id:
+                user_in_channel = char.user_name
+            channel_name = self.get_username(channel)
+            expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
+            if expscroll:
+                count = min(scroll_count-current_count, expscroll.amount)
+                await self.send_chat_message(char.user_name, channel_name, f'!exp {count}')
+                current_count += count
+                await asyncio.sleep(1)
+        if current_count == 0:
+            await self.send_chat_message(user_in_channel, channel_name, "No scrolls :(")
+        elif current_count < scroll_count:
+            await self.send_chat_message(user_in_channel, channel_name, "Ran out of scrolls")
+        else:
+            await self.send_chat_message(user_in_channel, channel_name, "Okay")
+            
+    
     async def process_commands(self, payload: twitchio.ChatMessage):
         prefix = "?"
         if payload.chatter.id != str(os.getenv("OWNER_ID")):
@@ -274,6 +343,15 @@ class ChatClient(twitchio.Client):
                 await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
             case "raidall":
                 await self.handle_raid(payload.broadcaster.id, payload.broadcaster.name)
+            case "ds":
+                await self.handle_dungeon_scroll(payload.broadcaster.id, payload.broadcaster.name)
+            case "rs":
+                await self.handle_raid_scroll(payload.broadcaster.id, payload.broadcaster.name)
+            case "fs":
+                await self.handle_ferry_scroll(payload.broadcaster.id, payload.broadcaster.name)
+            case "exps":
+                if len(args) > 0 and args[0].isdigit():
+                    await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, int(args[0]))
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
