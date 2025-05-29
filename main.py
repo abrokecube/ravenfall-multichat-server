@@ -367,12 +367,13 @@ class ChatClient(twitchio.Client):
                 user_to_speak, channel_name, f"Total available scrolls across channels - {scroll_counts_text}"
             )
         else:
-            scroll_counts_text = []
+            scroll_counts_text_strs = []
             for name, (total_c, channel_c) in scroll_counts_list:
                 if name == "Exp Multiplier Scroll":
-                    scroll_counts_text.append(f"{total_c} {utils.pl(channel_c, name, False)}")
+                    scroll_counts_text_strs.append(f"{total_c} {utils.pl(channel_c, name, False)}")
                 else:
-                    scroll_counts_text.append(f"{channel_c} {utils.pl(channel_c, name, False)}")
+                    scroll_counts_text_strs.append(f"{channel_c} {utils.pl(channel_c, name, False)}")
+            scroll_counts_text = ', '.join(scroll_counts_text_strs)
             await self.send_chat_message(
                 user_to_speak, channel_name, f"Available scrolls - {scroll_counts_text}"
             )
