@@ -129,6 +129,7 @@ class ChatClient(twitchio.Client):
         self.rf_api = rf_api
         self.ran_once = False
         self.player_char_data: Dict[str, ravenpy.Character] = {}
+        self.current_mult = 1
     
     async def get_username(self, user_id: str):
         user_id = str(user_id)
@@ -309,13 +310,21 @@ class ChatClient(twitchio.Client):
         current_count = 0
         user_in_channel = ""
         for char in self.player_char_data.values():
+            if (not user_in_channel) and (char.user_name != caller_username):
+                user_in_channel = char.user_name
+                break
+        if self.current_mult >= 100:
+            await self.send_chat_message(user_in_channel, channel_name, "Multiplier is already maxed")
+            return
+        if scroll_count <= 0:
+            await self.send_chat_message(user_in_channel, channel_name, "I am keeping my scrolls I guess")
+            return
+        for char in self.player_char_data.values():
             if char.user_name.lower() == caller_username.lower():
                 continue
             if current_count >= scroll_count:
                 break
             channel = self.account_channels[char.twitch_id][char.index-1]
-            if user_in_channel == "" and channel == channel_id:
-                user_in_channel = char.user_name
             char_channel_name = await self.get_username(channel)
             expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
             if expscroll:
@@ -380,8 +389,10 @@ class ChatClient(twitchio.Client):
             case "fs":
                 await self.handle_ferry_scroll(payload.broadcaster.id, payload.broadcaster.name)
             case "exps":
+                scroll_count = 100 - self.current_mult
                 if len(args) > 0 and args[0].isdigit():
-                    await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, int(args[0]), payload.chatter.name)
+                    scroll_count = int(args[0])
+                    await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, scroll_count, payload.chatter.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
@@ -520,6 +531,7 @@ class ChatClient(twitchio.Client):
             "start": mult.start_time.timestamp(),
             "end": mult.end_time.timestamp()
         }))
+        self.current_mult = mult.multiplier
         group_size = 3
         users_grouped = [
             self.ravenfall_users[i:i+group_size] 
