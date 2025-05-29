@@ -339,7 +339,7 @@ class ChatClient(twitchio.Client):
         else:
             await self.send_chat_message(user_to_speak, channel_name, "Okay")
             
-    async def handle_count_scrolls(self, channel_id: str, channel_name: str, caller_username: str):
+    async def handle_count_scrolls(self, channel_id: str, channel_name: str, caller_username: str, total_scrolls = False):
         scroll_counts = {}
         user_to_speak = ""
         for char in self.player_char_data.values():
@@ -361,10 +361,17 @@ class ChatClient(twitchio.Client):
         scroll_counts_list = [(x, y) for x, y in scroll_counts.items()]
         scroll_counts_list.sort(key=lambda x: x[0])
         # scroll_counts_text = ', '.join(f"{name}: {channel_c}x ({total_c}x)" for name, (total_c, channel_c) in scroll_counts_list)
-        scroll_counts_text = ', '.join(f"{channel_c} ({total_c}) {utils.pl(max(channel_c, total_c), name, False)}" for name, (total_c, channel_c) in scroll_counts_list)
-        await self.send_chat_message(
-            user_to_speak, channel_name, f"Available scrolls - {scroll_counts_text}"
-        )
+        if total_scrolls:
+            scroll_counts_text = ', '.join(f"{total_c} {utils.pl(total_c, name, False)}" for name, (total_c, channel_c) in scroll_counts_list)
+            await self.send_chat_message(
+                user_to_speak, channel_name, f"Total available scrolls across channels - {scroll_counts_text}"
+            )
+        else:
+            scroll_counts_text = ', '.join(f"{channel_c} {utils.pl(channel_c, name, False)}" for name, (total_c, channel_c) in scroll_counts_list)
+            await self.send_chat_message(
+                user_to_speak, channel_name, f"Available scrolls - {scroll_counts_text}"
+            )
+            
 
     async def handle_exec_as_joined(self, channel_id: str, channel_name: str, caller_username: str, text: str):
         user_in_channel = ""
@@ -408,7 +415,10 @@ class ChatClient(twitchio.Client):
                     )
         match command:
             case "scrolls":
-                await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name, payload.chatter.name)
+                get_total = False
+                if args and args[0].lower() == "all":
+                    get_total = True
+                await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name, payload.chatter.name, get_total)
             case "ds":
                 await self.handle_dungeon_scroll(payload.broadcaster.id, payload.broadcaster.name)
             case "rs":
