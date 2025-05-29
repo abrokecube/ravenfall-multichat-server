@@ -381,6 +381,9 @@ class ChatClient(twitchio.Client):
 
 
     async def process_commands(self, payload: twitchio.ChatMessage):
+        if payload.text[0] in ("!", ">"):
+            await self.parse_chat_command(payload.text, payload.chatter.id, payload.broadcaster.id)
+            return
         prefix = "?"
         if len(payload.text) < len(prefix) + 1 or payload.text[0] != "?":
             return
@@ -465,16 +468,28 @@ class ChatClient(twitchio.Client):
         }))
 
     async def parse_chat_command(self, text: str, user_id: str, channel_id: str):
+        username = await self.get_username(user_id)
         args = text.lstrip("!>").split()
         command = args[0]
         args = args[1:]
         match command:
             case "join":
-                if len(args) < 1:
+                if not user_id in self.account_channels:
                     return
-                if not args[0].isdigit():
-                    return
-                index = int(args[0])
+                index = 1
+                if len(args) > 0:
+                    if args[0].isdigit():
+                        index = int(args[0])
+                    else:
+                        for i in range(1, 4):
+                            key = f"{username}_{i}"
+                            if key in self.player_char_data:
+                                char_name = self.player_char_data[key].name
+                                if char_name and char_name.split()[0].lower() == args[0]:
+                                    index = i
+                                    break
+                        else:
+                            return
                 if index == 0:
                     index = 1
                 if index < 0:
