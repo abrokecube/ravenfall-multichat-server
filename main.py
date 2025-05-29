@@ -240,10 +240,26 @@ class ChatClient(twitchio.Client):
     async def handle_sail(self, channel_id: str, channel_name: str):
         for char in self.player_char_data.values():
             if char.training in (None, Skills.Sailing):
+                if char.in_dungeon or char.in_raid:
+                    continue
+                if char.in_onsen:
+                    await self.send_chat_message(char.user_name, channel_name, '!rest leave')
+                    await asyncio.sleep(2)
                 channel = self.account_channels[char.twitch_id][char.index-1]
                 if channel == channel_id:
                     await self.send_chat_message(char.user_name, channel_name, '!sail')
-
+                    await asyncio.sleep(0.5)
+                    
+    async def handle_raid(self, channel_id: str, channel_name: str):
+        for char in self.player_char_data.values():
+            if not char.training in ravenpy.combat_skills:
+                continue
+            if char.auto_join_raid_count == 0:
+                channel = self.account_channels[char.twitch_id][char.index-1]
+                if channel == channel_id:
+                    await self.send_chat_message(char.user_name, channel_name, '!auto raid on')
+                    await asyncio.sleep(0.4)
+                
     async def process_commands(self, payload: twitchio.ChatMessage):
         prefix = "?"
         if payload.chatter.id != str(os.getenv("OWNER_ID")):
@@ -256,6 +272,8 @@ class ChatClient(twitchio.Client):
         match command:
             case "sail":
                 await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
+            case "raid":
+                await self.handle_raid(payload.broadcaster.id, payload.broadcaster.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
@@ -367,12 +385,12 @@ class ChatClient(twitchio.Client):
             "data": data
         }))
 
-    @routines.routine(delta=timedelta(seconds=6))
+    @routines.routine(delta=timedelta(seconds=10))
     async def fetch_rf_api(self):
-        try:
-            await ws.ping()
-        except:
-            return
+        # try:
+        #     await ws.ping()
+        # except:
+        #     return
             
         await send_ws(json.dumps({
             "type": "users",
