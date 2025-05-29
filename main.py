@@ -270,9 +270,9 @@ class ChatClient(twitchio.Client):
         command = spl[0].lower()
         args = spl[1:]
         match command:
-            case "sail":
+            case "sailall":
                 await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
-            case "raid":
+            case "raidall":
                 await self.handle_raid(payload.broadcaster.id, payload.broadcaster.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
