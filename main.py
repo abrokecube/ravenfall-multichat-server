@@ -314,11 +314,11 @@ class ChatClient(twitchio.Client):
             channel = self.account_channels[char.twitch_id][char.index-1]
             if user_in_channel == "" and channel == channel_id:
                 user_in_channel = char.user_name
-            channel_name = await self.get_username(channel)
+            char_channel_name = await self.get_username(channel)
             expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
             if expscroll:
                 count = min(scroll_count-current_count, expscroll.amount)
-                await self.send_chat_message(char.user_name, channel_name, f'!exp {count}')
+                await self.send_chat_message(char.user_name, char_channel_name, f'!exp {count}')
                 current_count += count
                 await asyncio.sleep(1)
         if current_count == 0:
