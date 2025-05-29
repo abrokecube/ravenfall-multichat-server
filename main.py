@@ -308,16 +308,16 @@ class ChatClient(twitchio.Client):
             
     async def handle_exp_scroll(self, channel_id: str, channel_name: str, scroll_count: int, caller_username: str):
         current_count = 0
-        user_in_channel = ""
+        user_to_speak = ""
         for char in self.player_char_data.values():
-            if (not user_in_channel) and (char.user_name != caller_username):
-                user_in_channel = char.user_name
+            if (not user_to_speak) and (char.user_name != caller_username):
+                user_to_speak = char.user_name
                 break
         if self.current_mult >= 100:
-            await self.send_chat_message(user_in_channel, channel_name, "Multiplier is already maxed")
+            await self.send_chat_message(user_to_speak, channel_name, "Multiplier is already maxed")
             return
         if scroll_count <= 0:
-            await self.send_chat_message(user_in_channel, channel_name, "I am keeping my scrolls I guess")
+            await self.send_chat_message(user_to_speak, channel_name, "I am keeping my scrolls I guess")
             return
         for char in self.player_char_data.values():
             if char.user_name.lower() == caller_username.lower():
@@ -333,23 +333,23 @@ class ChatClient(twitchio.Client):
                 current_count += count
                 await asyncio.sleep(1)
         if current_count == 0:
-            await self.send_chat_message(user_in_channel, channel_name, "No scrolls :(")
+            await self.send_chat_message(user_to_speak, channel_name, "No scrolls :(")
         elif current_count < scroll_count:
-            await self.send_chat_message(user_in_channel, channel_name, "Ran out of scrolls")
+            await self.send_chat_message(user_to_speak, channel_name, "Ran out of scrolls")
         else:
-            await self.send_chat_message(user_in_channel, channel_name, "Okay")
+            await self.send_chat_message(user_to_speak, channel_name, "Okay")
             
     async def handle_count_scrolls(self, channel_id: str, channel_name: str, caller_username: str):
         scroll_counts = {}
-        user_in_channel = ""
+        user_to_speak = ""
         for char in self.player_char_data.values():
             channel = self.account_channels[char.twitch_id][char.index-1]
             dscroll = char.get_item(ravenpy.Items.DungeonScroll)
             rscroll = char.get_item(ravenpy.Items.RaidScroll)
             expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
             fscroll = char.get_item("Ferry Scroll")
-            if (not user_in_channel) and (char.user_name != caller_username):
-                user_in_channel = char.user_name
+            if (not user_to_speak) and (char.user_name != caller_username):
+                user_to_speak = char.user_name
             for item in (dscroll, rscroll, expscroll, fscroll):
                 if not item: 
                     continue
@@ -363,8 +363,22 @@ class ChatClient(twitchio.Client):
         # scroll_counts_text = ', '.join(f"{name}: {channel_c}x ({total_c}x)" for name, (total_c, channel_c) in scroll_counts_list)
         scroll_counts_text = ', '.join(f"{channel_c} ({total_c}) {utils.pl(max(channel_c, total_c), name, False)}" for name, (total_c, channel_c) in scroll_counts_list)
         await self.send_chat_message(
-            user_in_channel, channel_name, f"Available scrolls - {scroll_counts_text}"
+            user_to_speak, channel_name, f"Available scrolls - {scroll_counts_text}"
         )
+
+    async def handle_exec_as_joined(self, channel_id: str, channel_name: str, caller_username: str, text: str):
+        user_in_channel = ""
+        for char in self.player_char_data.values():
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if channel != channel_id:
+                continue
+            if (not user_in_channel) and (char.user_name != caller_username):
+                user_in_channel = char.user_name
+                break
+        await self.send_chat_message(
+            user_in_channel, channel_name, text
+        )
+
 
     async def process_commands(self, payload: twitchio.ChatMessage):
         prefix = "?"
@@ -379,6 +393,16 @@ class ChatClient(twitchio.Client):
                     await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
                 case "raidall":
                     await self.handle_raid(payload.broadcaster.id, payload.broadcaster.name)
+                case "sail":
+                    await self.handle_exec_as_joined(
+                        payload.broadcaster.id, payload.broadcaster.name, 
+                        payload.chatter.name, f"!sail {' '.join(args)}"
+                    )
+                case "say":
+                    await self.handle_exec_as_joined(
+                        payload.broadcaster.id, payload.broadcaster.name, 
+                        payload.chatter.name, ' '.join(args)
+                    )
         match command:
             case "scrolls":
                 await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name, payload.chatter.name)
