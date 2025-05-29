@@ -57,8 +57,6 @@ class ChannelInfo:
     display_name: str = ""
     live: bool = False
 
-async def handle_s
-
 ws: ServerConnection
 async def ws_handler(ws_: ServerConnection):
     global ws
@@ -239,11 +237,17 @@ class ChatClient(twitchio.Client):
         self.save_channels()
         print(mention_re_text)
     
-    async def handle_sail(self, channel_name: str):
-        ...
+    async def handle_sail(self, channel_id: str, channel_name: str):
+        for char in self.player_char_data.values():
+            if char.training in (None, Skills.Sailing):
+                channel = self.account_channels[char.twitch_id][char.index-1]
+                if channel == channel_id:
+                    await self.send_chat_message(char.user_name, channel_name, '!sail')
 
     async def process_commands(self, payload: twitchio.ChatMessage):
         prefix = "?"
+        if payload.chatter.id != str(os.getenv("OWNER_ID")):
+            return
         if len(payload.text) < len(prefix) + 1 or payload.text[0] != "?":
             return
         spl = payload.text[len(prefix):].split()
@@ -251,7 +255,7 @@ class ChatClient(twitchio.Client):
         args = spl[1:]
         match command:
             case "sail":
-                await handle_sail(payload.broadcaster.name)
+                await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
@@ -412,6 +416,7 @@ class ChatClient(twitchio.Client):
             for char in result:
                 if char is None:
                     continue
+                self.player_char_data[f"{char.user_name}_{char.index}"] = char
                 progress = 0
                 
                 if char.training:
