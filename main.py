@@ -305,10 +305,12 @@ class ChatClient(twitchio.Client):
         else:
             await self.send_chat_message(user_in_channel, channel_name, 'Out of ferry scrolls :(')
             
-    async def handle_exp_scroll(self, channel_id: str, channel_name: str, scroll_count: int):
+    async def handle_exp_scroll(self, channel_id: str, channel_name: str, scroll_count: int, caller_username: str):
         current_count = 0
         user_in_channel = ""
         for char in self.player_char_data.values():
+            if char.user_name.lower() == caller_username.lower():
+                continue
             if current_count >= scroll_count:
                 break
             channel = self.account_channels[char.twitch_id][char.index-1]
@@ -328,21 +330,48 @@ class ChatClient(twitchio.Client):
         else:
             await self.send_chat_message(user_in_channel, channel_name, "Okay")
             
-    
+    async def handle_count_scrolls(self, channel_id: str, channel_name: str):
+        scroll_counts = {}
+        user_in_channel = ""
+        for char in self.player_char_data.values():
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            dscroll = char.get_item(ravenpy.Items.DungeonScroll)
+            rscroll = char.get_item(ravenpy.Items.RaidScroll)
+            expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
+            fscroll = char.get_item("Ferry Scroll")
+            if not user_in_channel:
+                user_in_channel = char.user_name
+            for item in (dscroll, rscroll, expscroll, fscroll):
+                if not item: 
+                    continue
+                if not item.item.name in scroll_counts:
+                    scroll_counts[item.item.name] = [0, 0]
+                scroll_counts[item.item.name][0] += item.amount
+                if channel == channel_id:
+                    scroll_counts[item.item.name][1] += item.amount
+        scroll_counts_list = [(x, y) for x, y in scroll_counts.items()]
+        scroll_counts_list.sort(key=lambda x: x[0])
+        scroll_counts_text = ', '.join(f"{name}: {channel_c}x ({total_c}x)" for name, (total_c, channel_c) in scroll_counts_list)
+        await self.send_chat_message(
+            user_in_channel, channel_name, f"Available scrolls - {scroll_counts_text}"
+        )
+
     async def process_commands(self, payload: twitchio.ChatMessage):
         prefix = "?"
-        if payload.chatter.id != str(os.getenv("OWNER_ID")):
-            return
         if len(payload.text) < len(prefix) + 1 or payload.text[0] != "?":
             return
         spl = payload.text[len(prefix):].split()
         command = spl[0].lower()
         args = spl[1:]
+        if payload.chatter.id == str(os.getenv("OWNER_ID")):
+            match command:
+                case "sailall":
+                    await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
+                case "raidall":
+                    await self.handle_raid(payload.broadcaster.id, payload.broadcaster.name)
         match command:
-            case "sailall":
-                await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
-            case "raidall":
-                await self.handle_raid(payload.broadcaster.id, payload.broadcaster.name)
+            case "scrolls":
+                await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name)
             case "ds":
                 await self.handle_dungeon_scroll(payload.broadcaster.id, payload.broadcaster.name)
             case "rs":
@@ -351,7 +380,7 @@ class ChatClient(twitchio.Client):
                 await self.handle_ferry_scroll(payload.broadcaster.id, payload.broadcaster.name)
             case "exps":
                 if len(args) > 0 and args[0].isdigit():
-                    await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, int(args[0]))
+                    await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, int(args[0]), payload.chatter.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
