@@ -392,7 +392,7 @@ class ChatClient(twitchio.Client):
                 scroll_count = 100 - self.current_mult
                 if len(args) > 0 and args[0].isdigit():
                     scroll_count = int(args[0])
-                    await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, scroll_count, payload.chatter.name)
+                await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, scroll_count, payload.chatter.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
