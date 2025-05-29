@@ -57,6 +57,8 @@ class ChannelInfo:
     display_name: str = ""
     live: bool = False
 
+async def handle_s
+
 ws: ServerConnection
 async def ws_handler(ws_: ServerConnection):
     global ws
@@ -128,6 +130,7 @@ class ChatClient(twitchio.Client):
         self.mention_re: re.Pattern = None
         self.rf_api = rf_api
         self.ran_once = False
+        self.player_char_data: Dict[str, ravenpy.Character] = {}
     
     async def get_username(self, user_id: str):
         user_id = str(user_id)
@@ -236,6 +239,20 @@ class ChatClient(twitchio.Client):
         self.save_channels()
         print(mention_re_text)
     
+    async def handle_sail(self, channel_name: str):
+        ...
+
+    async def process_commands(self, payload: twitchio.ChatMessage):
+        prefix = "?"
+        if len(payload.text) < len(prefix) + 1 or payload.text[0] != "?":
+            return
+        spl = payload.text[len(prefix):].split()
+        command = spl[0].lower()
+        args = spl[1:]
+        match command:
+            case "sail":
+                await handle_sail(payload.broadcaster.name)
+
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
         print(f"#{payload.broadcaster.name}: {payload.chatter.name}: {payload.text}")
@@ -261,6 +278,7 @@ class ChatClient(twitchio.Client):
                 "is_moderator": payload.chatter.moderator,
                 "is_vip": payload.chatter.vip,
             }))
+        await self.process_commands(payload)
             
     async def event_channel_update(self, payload: twitchio.ChannelUpdate):
         channel = self.connected_channels[payload.broadcaster.id]
@@ -351,7 +369,7 @@ class ChatClient(twitchio.Client):
             await ws.ping()
         except:
             return
-
+            
         await send_ws(json.dumps({
             "type": "users",
             "data": [self.id_to_username[x] for x in self.ravenfall_users]
