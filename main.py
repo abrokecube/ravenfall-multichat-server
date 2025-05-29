@@ -330,7 +330,7 @@ class ChatClient(twitchio.Client):
         else:
             await self.send_chat_message(user_in_channel, channel_name, "Okay")
             
-    async def handle_count_scrolls(self, channel_id: str, channel_name: str):
+    async def handle_count_scrolls(self, channel_id: str, channel_name: str, caller_username: str):
         scroll_counts = {}
         user_in_channel = ""
         for char in self.player_char_data.values():
@@ -339,7 +339,7 @@ class ChatClient(twitchio.Client):
             rscroll = char.get_item(ravenpy.Items.RaidScroll)
             expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
             fscroll = char.get_item("Ferry Scroll")
-            if not user_in_channel:
+            if (not user_in_channel) and (char.user_name != caller_username):
                 user_in_channel = char.user_name
             for item in (dscroll, rscroll, expscroll, fscroll):
                 if not item: 
@@ -351,7 +351,8 @@ class ChatClient(twitchio.Client):
                     scroll_counts[item.item.name][1] += item.amount
         scroll_counts_list = [(x, y) for x, y in scroll_counts.items()]
         scroll_counts_list.sort(key=lambda x: x[0])
-        scroll_counts_text = ', '.join(f"{name}: {channel_c}x ({total_c}x)" for name, (total_c, channel_c) in scroll_counts_list)
+        # scroll_counts_text = ', '.join(f"{name}: {channel_c}x ({total_c}x)" for name, (total_c, channel_c) in scroll_counts_list)
+        scroll_counts_text = ', '.join(f"{channel_c} ({total_c}) {utils.pl(max(channel_c, total_c), name, False)}" for name, (total_c, channel_c) in scroll_counts_list)
         await self.send_chat_message(
             user_in_channel, channel_name, f"Available scrolls - {scroll_counts_text}"
         )
@@ -371,7 +372,7 @@ class ChatClient(twitchio.Client):
                     await self.handle_raid(payload.broadcaster.id, payload.broadcaster.name)
         match command:
             case "scrolls":
-                await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name)
+                await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name, payload.chatter.name)
             case "ds":
                 await self.handle_dungeon_scroll(payload.broadcaster.id, payload.broadcaster.name)
             case "rs":
