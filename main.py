@@ -215,7 +215,8 @@ class ChatClient(twitchio.Client):
         user_info = await self.fetch_users(ids=[resp.user_id])
         self.user_info[resp.user_id] = {
             "name": user_info[0].name,
-            "can_add_moderators": False
+            "can_add_moderators": False,
+            "can_execute_commands": False
         }
         with open("users.json", 'w') as f:
             json.dump(self.user_info, f)
@@ -403,7 +404,7 @@ class ChatClient(twitchio.Client):
         spl = payload.text[len(prefix):].split()
         command = spl[0].lower()
         args = spl[1:]
-        if payload.chatter.id == str(os.getenv("OWNER_ID")):
+        if self.user_info.get(payload.chatter.id, {}).get("can_execute_commands", False):
             match command:
                 case "sailall":
                     await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
@@ -419,23 +420,24 @@ class ChatClient(twitchio.Client):
                         payload.broadcaster.id, payload.broadcaster.name, 
                         payload.chatter.name, ' '.join(args)
                     )
-        match command:
-            case "scrolls":
-                get_total = False
-                if args and args[0].lower() == "all":
-                    get_total = True
-                await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name, payload.chatter.name, get_total)
-            case "ds":
-                await self.handle_dungeon_scroll(payload.broadcaster.id, payload.broadcaster.name)
-            case "rs":
-                await self.handle_raid_scroll(payload.broadcaster.id, payload.broadcaster.name)
-            case "fs":
-                await self.handle_ferry_scroll(payload.broadcaster.id, payload.broadcaster.name)
-            case "exps":
-                scroll_count = 100 - self.current_mult
-                if len(args) > 0 and args[0].isdigit():
-                    scroll_count = int(args[0])
-                await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, scroll_count, payload.chatter.name)
+        if self.user_info.get(payload.broadcaster.id, {}).get("can_add_moderators", False):
+            match command:
+                case "scrolls":
+                    get_total = False
+                    if args and args[0].lower() == "all":
+                        get_total = True
+                    await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name, payload.chatter.name, get_total)
+                case "ds":
+                    await self.handle_dungeon_scroll(payload.broadcaster.id, payload.broadcaster.name)
+                case "rs":
+                    await self.handle_raid_scroll(payload.broadcaster.id, payload.broadcaster.name)
+                case "fs":
+                    await self.handle_ferry_scroll(payload.broadcaster.id, payload.broadcaster.name)
+                case "exps":
+                    scroll_count = 100 - self.current_mult
+                    if len(args) > 0 and args[0].isdigit():
+                        scroll_count = int(args[0])
+                    await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, scroll_count, payload.chatter.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
