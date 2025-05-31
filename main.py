@@ -136,7 +136,7 @@ class ChatClient(twitchio.Client):
         if not user_id in self.username_to_id:
             user = await self.fetch_users(ids=[user_id])
             self.username_to_id[user[0].name] = user_id
-            self.id_to_username[user_id] = user[0].display_name
+            self.id_to_username[user_id] = user[0].name
         return self.id_to_username[user_id]
 
     async def get_id(self, username: str):
