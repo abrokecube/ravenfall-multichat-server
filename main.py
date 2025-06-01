@@ -787,6 +787,73 @@ class ChatClient(twitchio.Client):
                     if recommended_island != char.island:
                         rec_island = f"Sail to {recommended_island.name.capitalize()}"
                 
+                short_rec_armor = []
+                rec_armor = ""
+                rec_armor_mat = ravenpy.get_material_for_level(char.defense.level)
+                eq = char.equipment
+                armors = [
+                    (eq.helmet, 'Helmet'),
+                    (eq.chest, 'Chest'),
+                    (eq.gloves, 'Gloves'),
+                    (eq.leggings, 'Leggings'),
+                    (eq.boots, 'Boots'),
+                ]
+                if not eq.weapon or eq.weapon.item.type in (ravenpy.ItemTypes.OneHandedSword, ravenpy.ItemTypes.OneHandedAxe):
+                    armors.append((eq.shield, 'Shield'))
+                for piece, short_l in armors:
+                    if (not piece) or piece.item.material != rec_armor_mat:
+                        in_inventory = char.get_item(f"{langstuff.material_names[rec_armor_mat]} {short_l}")
+                        if in_inventory:
+                            short_rec_armor.append("*")
+                        else:
+                            short_rec_armor.append(short_l[0])
+                        rec_armor = f"{langstuff.material_names[rec_armor_mat]} set"
+                    else:
+                        short_rec_armor.append("-")
+                if rec_armor:
+                    rec_armor = utils.strjoin(" ", rec_armor, utils.strenclose("(", ")", "", utils.strjoin('',*short_rec_armor)))
+                    has_armor_recs = True
+
+                rec_weapon = ""
+                if Skills.Health in (char.dungeon_combat_style, char.raid_combat_style) \
+                or char.training in (Skills.All, Skills.Attack, Skills.Defense, Skills.Strength, Skills.Health) \
+                or eq.weapon:
+                    rec_weapon_mat = ravenpy.get_material_for_level(char.attack.level)
+                    inv_check = []
+                    if not eq.weapon:
+                        rec_weapon = f"{rec_weapon_mat.name} weapon"
+                        inv_check.append(f"{rec_weapon_mat.name} Sword")
+                        inv_check.append(f"{rec_weapon_mat.name} 2H Sword")
+                        inv_check.append(f"{rec_weapon_mat.name} Axe")
+                        inv_check.append(f"{rec_weapon_mat.name} 2H Axe")
+                    elif eq.weapon.item.material != rec_weapon_mat:
+                        rec_weapon = f"{langstuff.material_names[rec_weapon_mat]} {utils.rm_words(eq.weapon.item.name, 1)}"
+                        inv_check.append(rec_weapon)
+
+                    for item_name in inv_check:
+                        if char.get_item(item_name):
+                            rec_weapon += "*"
+                            break
+
+                rec_staff = ""
+                if Skills.Healing in (char.dungeon_combat_style, char.raid_combat_style, char.training)\
+                or Skills.Magic in (char.dungeon_combat_style, char.raid_combat_style, char.training)\
+                or eq.staff:
+                    rec_mat = ravenpy.get_material_for_level(max(char.healing.level, char.magic.level))
+                    if (not eq.staff) or eq.staff.item.material != rec_mat:
+                        rec_staff = f"{langstuff.material_names[rec_mat]} staff"
+                        if char.get_item(f"{langstuff.material_names[rec_mat]} Staff"):
+                            rec_staff += "*"
+                
+                rec_bow = ""
+                if Skills.Ranged in (char.dungeon_combat_style, char.raid_combat_style, char.training)\
+                or eq.bow:
+                    rec_mat = ravenpy.get_material_for_level(char.ranged.level)
+                    if (not eq.bow) or eq.bow.item.material != rec_mat:
+                        rec_bow = f"{langstuff.material_names[rec_mat]} bow"
+                        if char.get_item(f"{langstuff.material_names[rec_mat]} Bow"):
+                            rec_bow += "*"
+                
                 status_color = "#000000"
                 if char.exp_per_hour == 0 and not char.in_onsen and not char.training == ravenpy.Skills.Sailing:
                     status_color = "#d62411"  # red
@@ -802,6 +869,12 @@ class ChatClient(twitchio.Client):
                         text2 if len(text2) > 25 else ""
                     ),
                     rec_island,
+                    utils.strjoin('\n',
+                        rec_armor,
+                        rec_weapon,
+                        rec_staff,
+                        rec_bow,
+                    ),
                     utils.strjoin('\n',
                         train_time,
                         exp_per_hour,
