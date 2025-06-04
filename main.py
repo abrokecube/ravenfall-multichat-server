@@ -281,7 +281,7 @@ class ChatClient(twitchio.Client):
             char = random.choice(char_data_list)
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
-                await self.send_chat_message(char.user_name, channel_name, f'Pong! Watching {len(char_data_list)} characters.')
+                await self.send_chat_message(char.user_name, channel_name, f'[rf-multichat] Pong! Watching {len(char_data_list)} characters.')
                 return
 
     async def handle_raid(self, channel_id: str, channel_name: str):
