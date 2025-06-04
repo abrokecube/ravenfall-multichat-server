@@ -275,6 +275,15 @@ class ChatClient(twitchio.Client):
             await asyncio.sleep(0.5)
         self.random_leaves[channel_id] = []
 
+    async def handle_ping(self, channel_id: str, channel_name: str):
+        char_data_list = list(self.player_char_data.values())
+        while True:
+            char = random.choice(char_data_list)
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if channel == channel_id:
+                await self.send_chat_message(char.user_name, channel_name, f'Pong! Watching {len(char_data_list)} characters.')
+                return
+
     async def handle_raid(self, channel_id: str, channel_name: str):
         for char in self.player_char_data.values():
             if not char.training in ravenpy.combat_skills:
@@ -467,6 +476,9 @@ class ChatClient(twitchio.Client):
                     if len(args) > 0 and args[0].isdigit():
                         scroll_count = int(args[0])
                     await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, scroll_count, payload.chatter.name)
+        match command:
+            case "ping":
+                await self.handle_ping(payload.broadcaster.id, payload.broadcaster.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
