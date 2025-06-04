@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import time
 import math
 import aiohttp
+import random
 
 load_dotenv()
 
@@ -130,6 +131,7 @@ class ChatClient(twitchio.Client):
         self.ran_once = False
         self.player_char_data: Dict[str, ravenpy.Character] = {}
         self.current_mult = 1
+        self.random_leaves: Dict[str, list[ravenpy.Character]] = {}
     
     async def get_username(self, user_id: str):
         user_id = str(user_id)
@@ -251,7 +253,28 @@ class ChatClient(twitchio.Client):
                 if channel == channel_id:
                     await self.send_chat_message(char.user_name, channel_name, '!sail')
                     await asyncio.sleep(0.5)
-                    
+
+    async def handle_random_leave(self, channel_id: str, channel_name: str):
+        if channel_id not in self.random_leaves:
+            self.random_leaves[channel_id] = []
+        char_data_list = list(self.player_char_data.values())
+        while True:
+            char = random.choice(char_data_list)
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if channel == channel_id:
+                await self.send_chat_message(char.user_name, channel_name, '!leave')
+                self.random_leaves[channel_id].append(char)
+                return
+    
+    async def handle_undo_random_leave(self, channel_id: str, channel_name: str):
+        if channel_id not in self.random_leaves or not self.random_leaves[channel_id]:
+            await self.send_chat_message(channel_name, channel_name, "No random leaves to undo")
+            return
+        for char in self.random_leaves[channel_id]:
+            await self.send_chat_message(char.user_name, channel_name, f'!join {char.index}')
+            await asyncio.sleep(0.5)
+        self.random_leaves[channel_id] = []
+
     async def handle_raid(self, channel_id: str, channel_name: str):
         for char in self.player_char_data.values():
             if not char.training in ravenpy.combat_skills:
@@ -420,6 +443,12 @@ class ChatClient(twitchio.Client):
                         payload.broadcaster.id, payload.broadcaster.name, 
                         payload.chatter.name, ' '.join(args)
                     )
+                case "randleave":
+                    await self.handle_random_leave(payload.broadcaster.id, payload.broadcaster.name)
+                case "undorandleave":
+                    await self.handle_undo_random_leave(payload.broadcaster.id, payload.broadcaster.name)
+                case "randleaveundo":
+                    await self.handle_undo_random_leave(payload.broadcaster.id, payload.broadcaster.name)
         if self.user_info.get(payload.broadcaster.id, {}).get("can_add_moderators", False):
             match command:
                 case "scrolls":
