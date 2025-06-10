@@ -1010,6 +1010,10 @@ class ChatClient(twitchio.Client):
         if time.time() - self.desync_last_update_time > 300:
             print("Desync data is too old!")
             return
+        print(', '.join([
+            f'{self.user_info.get(x, {}).get("name", "")}: {round(y, 3)}s'
+            for x, y in self.desync_per_channel_id.items()
+        ]))
         resynced_channels = []
         for channel_id, desync in self.desync_per_channel_id.items():
             if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
@@ -1022,10 +1026,6 @@ class ChatClient(twitchio.Client):
             print(f"Attempted resync for {', '.join(resynced_channels)}")
         else:
             print(f"No resync needed.")
-        print(', '.join([
-            f'{self.user_info.get(x, {}).get("name", "")}: {round(y, 3)}s'
-            for x, y in self.desync_per_channel_id.items()
-        ]))
    
 
 rfapi: ravenpy.RavenNest
