@@ -499,9 +499,8 @@ class ChatClient(twitchio.Client):
                     await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
                 case "relog":
                     await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
-        match command:
-            case "ping":
-                await self.handle_ping(payload.broadcaster.id, payload.broadcaster.name)
+                case "ping":
+                    await self.handle_ping(payload.broadcaster.id, payload.broadcaster.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
