@@ -265,7 +265,20 @@ class ChatClient(twitchio.Client):
                 await self.send_chat_message(char.user_name, channel_name, '!leave')
                 self.random_leaves[channel_id].append(char)
                 return
-    
+
+    async def handle_random_relog(self, channel_id: str, channel_name: str):
+        if channel_id not in self.random_leaves:
+            self.random_leaves[channel_id] = []
+        char_data_list = list(self.player_char_data.values())
+        while True:
+            char = random.choice(char_data_list)
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if channel == channel_id:
+                await self.send_chat_message(char.user_name, channel_name, '!leave')
+                await asyncio.sleep(1)
+                await self.send_chat_message(char.user_name, channel_name, f'!join {char.index}')
+                return
+
     async def handle_undo_random_leave(self, channel_id: str, channel_name: str):
         if channel_id not in self.random_leaves or not self.random_leaves[channel_id]:
             await self.send_chat_message(channel_name, channel_name, "No random leaves to undo")
@@ -364,7 +377,7 @@ class ChatClient(twitchio.Client):
                 count = min(scroll_count-current_count, expscroll.amount)
                 await self.send_chat_message(char.user_name, char_channel_name, f'!exp {count}')
                 current_count += count
-                await asyncio.sleep(1)
+                await asyncio.sleep(.75)
         if current_count == 0:
             await self.send_chat_message(user_to_speak, channel_name, "No scrolls :(")
         elif current_count < scroll_count:
@@ -476,6 +489,12 @@ class ChatClient(twitchio.Client):
                     if len(args) > 0 and args[0].isdigit():
                         scroll_count = int(args[0])
                     await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, scroll_count, payload.chatter.name)
+                case "resync":
+                    await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
+                case "randrelog":
+                    await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
+                case "relog":
+                    await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
         match command:
             case "ping":
                 await self.handle_ping(payload.broadcaster.id, payload.broadcaster.name)
