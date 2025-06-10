@@ -133,6 +133,7 @@ class ChatClient(twitchio.Client):
         self.current_mult = 1
         self.random_leaves: Dict[str, list[ravenpy.Character]] = {}
         self.desync_per_channel_id: Dict[str, List[float]] = {}
+        self.desync_last_update_time: float = 0
     
     async def get_username(self, user_id: str):
         user_id = str(user_id)
@@ -996,6 +997,7 @@ class ChatClient(twitchio.Client):
                 samples.append(0)
             channel_avg_desync = sum(samples) / len(samples)
             self.desync_per_channel_id[channel_id] = channel_avg_desync
+        self.desync_last_update_time = time.time()
         # with open("desync.csv", "a") as f:
         #     f.write(f"{time.time()},{avg_desync}\n")
         await send_ws(json.dumps({
@@ -1005,6 +1007,9 @@ class ChatClient(twitchio.Client):
     
     @routines.routine(delta=timedelta(minutes=15), wait_first=True)
     async def resync_routine(self):
+        if time.time() - self.desync_last_update_time > 300:
+            print("Desync data is too old!")
+            return
         resynced_channels = []
         for channel_id, desync in self.desync_per_channel_id.items():
             if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
