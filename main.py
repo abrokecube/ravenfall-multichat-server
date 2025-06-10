@@ -132,6 +132,7 @@ class ChatClient(twitchio.Client):
         self.player_char_data: Dict[str, ravenpy.Character] = {}
         self.current_mult = 1
         self.random_leaves: Dict[str, list[ravenpy.Character]] = {}
+        self.desync_per_channel_id: Dict[str, List[float]] = {}
     
     async def get_username(self, user_id: str):
         user_id = str(user_id)
@@ -184,6 +185,7 @@ class ChatClient(twitchio.Client):
         self.refresh_users()
         self.fetch_rf_api.start()
         self.send_channels.start()
+        self.resync_routine.start()
         LOGGER.info("Finished setup hook!")
     
     def save_channels(self):
@@ -655,6 +657,7 @@ class ChatClient(twitchio.Client):
             for i in range(0, len(self.ravenfall_users), group_size)
         ]
         desync_samples = []
+        desync_samples_per_channel: Dict[str, List[float]] = {}
         for user_id_group in users_grouped:
             out_data = []
             # results = await get_characters(self.rf_api, user_id)
@@ -730,15 +733,15 @@ class ChatClient(twitchio.Client):
                     
                 text1 = utils.capitalize_first_letter(utils.strjoin(' - ', training, target_item))
                 text2 = utils.capitalize_first_letter(utils.strjoin(' ', where, where_island, destination, captain))
-                channel = self.account_channels[char.twitch_id][char.index-1]
-                if channel is not None:
+                channel_id = self.account_channels[char.twitch_id][char.index-1]
+                if channel_id is not None:
                     channel_idx = 0
                     for idx, ch_id in enumerate(self.connected_channels.keys()):
-                        if ch_id == channel:
+                        if ch_id == channel_id:
                             channel_idx = idx
                             break
                     color = COLORS[channel_idx % len(COLORS)]
-                    channel = await self.get_username(channel)
+                    channel = await self.get_username(channel_id)
                     ...
                 # if channel is not None:
                 #     self.fetch_channels()
@@ -758,6 +761,9 @@ class ChatClient(twitchio.Client):
                     train_time_diff = (training_time_exp - training_time_server)
                     desync_s = train_time_diff.total_seconds()
                     desync_samples.append(desync_s)
+                    if not channel_id in desync_samples_per_channel:
+                        desync_samples_per_channel[channel_id] = []
+                    desync_samples_per_channel[channel_id].append(desync_s)
                     char_is_offline = train_time_diff.total_seconds() > 60*3  # 3 minutes
                 if char_is_offline:
                     status = "offline"
@@ -977,14 +983,34 @@ class ChatClient(twitchio.Client):
             desync_samples = desync_samples[sample_trim:-sample_trim]
         if len(desync_samples) == 0:
             desync_samples.append(0)
-        
         avg_desync = sum(desync_samples) / len(desync_samples)
+        
+        self.desync_per_channel_id.clear()
+        for channel_id, samples in desync_samples_per_channel.items():
+            samples.sort()
+            sample_trim = int(round(len(samples) * .2))
+            if sample_trim > 0:
+                samples = samples[sample_trim:-sample_trim]
+            if len(samples) == 0:
+                samples.append(0)
+            channel_avg_desync = sum(samples) / len(samples)
+            self.desync_per_channel_id[channel_id] = channel_avg_desync
         # with open("desync.csv", "a") as f:
         #     f.write(f"{time.time()},{avg_desync}\n")
         await send_ws(json.dumps({
             "type": "update_desync",
             "seconds": avg_desync
         }))
+    
+    @routines.routine(delta=timedelta(minutes=15))
+    async def resync_routine(self):
+        for channel_id, desync in self.desync_per_channel_id.items():
+            if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
+                continue
+            user_name = self.user_info.get(channel_id, {}).get("name", "")
+            if abs(desync) > 60*3:  # 3 minutes
+                await self.handle_random_relog(channel_id, user_name)
+            
    
 
 rfapi: ravenpy.RavenNest
