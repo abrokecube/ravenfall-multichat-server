@@ -1006,13 +1006,22 @@ class ChatClient(twitchio.Client):
     
     @routines.routine(delta=timedelta(minutes=15), wait_first=True)
     async def resync_routine(self):
+        resynced_channels = []
         for channel_id, desync in self.desync_per_channel_id.items():
             if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
                 continue
             user_name = self.user_info.get(channel_id, {}).get("name", "")
             if abs(desync) > 60*3:  # 3 minutes
                 await self.handle_random_relog(channel_id, user_name)
-            
+                resynced_channels.append(user_name)
+        if resynced_channels:
+            print(f"Attempted resync for {', '.join(resynced_channels)}")
+        else:
+            print(f"No resync needed.")
+        print(', '.join([
+            f'{self.user_info.get(x, {}).get("name", "")}: {round(y, 3)}s'
+            for x, y in self.desync_per_channel_id.items()
+        ]))
    
 
 rfapi: ravenpy.RavenNest
