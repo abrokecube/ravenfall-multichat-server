@@ -473,6 +473,8 @@ class ChatClient(twitchio.Client):
                     await self.handle_undo_random_leave(payload.broadcaster.id, payload.broadcaster.name)
                 case "randleaveundo":
                     await self.handle_undo_random_leave(payload.broadcaster.id, payload.broadcaster.name)
+                case "resynctest":
+                    await self.resync_routine()
         if self.user_info.get(payload.broadcaster.id, {}).get("can_add_moderators", False):
             match command:
                 case "scrolls":
@@ -1002,7 +1004,7 @@ class ChatClient(twitchio.Client):
             "seconds": avg_desync
         }))
     
-    @routines.routine(delta=timedelta(minutes=15))
+    @routines.routine(delta=timedelta(minutes=15), wait_first=True)
     async def resync_routine(self):
         for channel_id, desync in self.desync_per_channel_id.items():
             if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
