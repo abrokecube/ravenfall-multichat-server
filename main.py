@@ -261,8 +261,8 @@ class ChatClient(twitchio.Client):
         if channel_id not in self.random_leaves:
             self.random_leaves[channel_id] = []
         char_data_list = list(self.player_char_data.values())
-        while True:
-            char = random.choice(char_data_list)
+        char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
+        for char in char_data_list_shuffled:
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
                 await self.send_chat_message(char.user_name, channel_name, '!leave')
@@ -273,14 +273,23 @@ class ChatClient(twitchio.Client):
         if channel_id not in self.random_leaves:
             self.random_leaves[channel_id] = []
         char_data_list = list(self.player_char_data.values())
-        while True:
-            char = random.choice(char_data_list)
+        char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
+        for char in char_data_list_shuffled:
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
-                await self.send_chat_message(char.user_name, channel_name, '!leave')
-                await asyncio.sleep(1)
-                await self.send_chat_message(char.user_name, channel_name, f'!join {char.index}')
-                return
+                if char.training not in (None, Skills.Sailing):
+                    if not (char.in_dungeon or char.in_raid):
+                        await self.send_chat_message(char.user_name, channel_name, '!leave')
+                        await asyncio.sleep(1)
+                        await self.send_chat_message(char.user_name, channel_name, f'!join {char.index}')
+                        return
+        print("No eligible characters for relog")
+
+    async def handle_town_desync(self, channel_id: str, channel_name: str):
+        if not channel_id in self.desync_per_channel_id:
+            return
+        d = utils.format_seconds(self.desync_per_channel_id[channel_id], utils.TimeSize.SMALL)
+        await self.send_chat_message_as_rand_user(channel_name, f"Estimated town desync: {d}")
 
     async def handle_undo_random_leave(self, channel_id: str, channel_name: str):
         if channel_id not in self.random_leaves or not self.random_leaves[channel_id]:
@@ -291,14 +300,24 @@ class ChatClient(twitchio.Client):
             await asyncio.sleep(0.5)
         self.random_leaves[channel_id] = []
 
-    async def handle_ping(self, channel_id: str, channel_name: str):
+    def get_random_char_in_channel(self, channel_name: str) -> ravenpy.Character | None:
+        channel_id = self.username_to_id[channel_name.lower()]
         char_data_list = list(self.player_char_data.values())
-        while True:
-            char = random.choice(char_data_list)
+        char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
+        for char in char_data_list_shuffled:
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
-                await self.send_chat_message(char.user_name, channel_name, f'[rf-multichat] Pong! Watching {len(char_data_list)} characters.')
-                return
+                return char
+        return None
+
+    async def send_chat_message_as_rand_user(self, channel_name: str, text: str):
+        char = self.get_random_char_in_channel(channel_name)
+        if not char:
+            return
+        await self.send_chat_message(char.user_name, channel_name, text)
+
+    async def handle_ping(self, channel_id: str, channel_name: str):
+        await self.send_chat_message_as_rand_user(channel_name, f'[rf-multichat] Pong! Watching {len(self.player_char_data)} characters.')
 
     async def handle_raid(self, channel_id: str, channel_name: str):
         for char in self.player_char_data.values():
@@ -502,6 +521,10 @@ class ChatClient(twitchio.Client):
                     await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
                 case "ping":
                     await self.handle_ping(payload.broadcaster.id, payload.broadcaster.name)
+                case "towndesync":
+                    await self.handle_town_desync(payload.broadcaster.id, payload.broadcaster.name)
+                case "desync":
+                    await self.handle_town_desync(payload.broadcaster.id, payload.broadcaster.name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
