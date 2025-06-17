@@ -94,10 +94,10 @@ async def send_ws(message, text: bool=False):
         )
         # print(message)
     except ConnectionClosedError:
-        logging.warning("WS connection to rfchatter is closed.")
+        # logging.warning("WS connection to rfchatter is closed.")
         pass
     except NameError:
-        logging.warning("Waiting for WS connection to rfchatter.")
+        # logging.warning("Waiting for WS connection to rfchatter.")
         pass
 
 async def ws_serve_task():
@@ -264,7 +264,10 @@ class ChatClient(twitchio.Client):
         char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
         for char in char_data_list_shuffled:
             channel = self.account_channels[char.twitch_id][char.index-1]
-            if channel == channel_id:
+            if channel == channel_id \
+                and char.twitch_id != os.getenv("OWNER_ID") \
+                and char.training not in (None, Skills.Sailing) \
+                and not (char.in_dungeon or char.in_raid):
                 await self.send_chat_message(char.user_name, channel_name, '!leave')
                 self.random_leaves[channel_id].append(char)
                 return
@@ -277,7 +280,8 @@ class ChatClient(twitchio.Client):
         for char in char_data_list_shuffled:
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
-                if char.training not in (None, Skills.Sailing):
+                if char.twitch_id != os.getenv("OWNER_ID") \
+                and char.training not in (None, Skills.Sailing):
                     if not (char.in_dungeon or char.in_raid):
                         await self.send_chat_message(char.user_name, channel_name, '!leave')
                         await asyncio.sleep(1)
@@ -288,8 +292,9 @@ class ChatClient(twitchio.Client):
     async def handle_town_desync(self, channel_id: str, channel_name: str):
         if not channel_id in self.desync_per_channel_id:
             return
-        d = utils.format_seconds(self.desync_per_channel_id[channel_id], utils.TimeSize.SMALL)
-        await self.send_chat_message_as_rand_user(channel_name, f"Estimated town desync: {d}")
+        d = utils.format_seconds(self.desync_per_channel_id[channel_id], utils.TimeSize.SMALL_SPACES)
+        e = utils.format_seconds(time.time() - self.desync_last_update_time, utils.TimeSize.SMALL_SPACES)
+        await self.send_chat_message_as_rand_user(channel_name, f"Estimated town desync: {d}. Updated {e} ago.")
 
     async def handle_undo_random_leave(self, channel_id: str, channel_name: str):
         if channel_id not in self.random_leaves or not self.random_leaves[channel_id]:
@@ -1028,10 +1033,11 @@ class ChatClient(twitchio.Client):
             "seconds": avg_desync
         }))
     
-    @routines.routine(delta=timedelta(minutes=15), wait_first=True)
+    @routines.routine(delta=timedelta(minutes=10), wait_first=True)
     async def resync_routine(self):
         if time.time() - self.desync_last_update_time > 300:
             print("Desync data is too old!")
+            self.fetch_rf_api.restart()
             return
         print(', '.join([
             f'{self.user_info.get(x, {}).get("name", "")}: {round(y, 3)}s'
@@ -1042,7 +1048,7 @@ class ChatClient(twitchio.Client):
             if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
                 continue
             user_name = self.user_info.get(channel_id, {}).get("name", "")
-            if abs(desync) > 60*3:  # 3 minutes
+            if abs(desync) > 60*1:  # 1 minute
                 await self.handle_random_relog(channel_id, user_name)
                 resynced_channels.append(user_name)
         if resynced_channels:
