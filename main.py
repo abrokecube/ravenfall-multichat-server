@@ -1036,7 +1036,25 @@ class ChatClient(twitchio.Client):
                             rec_items.append(rec_bow)
 
                 self.player_recommendations[char_key] = rec_items
-                
+
+                stats_str_build = []
+                combat_level = "Lv. " + str(char.combat_level)
+                stats_str_build.append(combat_level)
+                for stat in char.stats:
+                    if stat.skill == Skills.Health:
+                        continue
+                    if stat.level > 1:
+                        plus_levels = stat.enchant_levels
+                        if plus_levels > 0:
+                            stats_str_build.append(
+                                f"{stat.skill.name} {stat.level} [+{plus_levels:,}]"
+                            )
+                        else:
+                            stats_str_build.append(
+                                f"{stat.skill.name} {stat.level}"
+                            )
+                stats_str = "\n".join(stats_str_build)
+  
                 status_color = "#000000"
                 if char.exp_per_hour == 0 and not char.in_onsen and not char.training == ravenpy.Skills.Sailing:
                     status_color = "#d62411"  # red
@@ -1065,6 +1083,7 @@ class ChatClient(twitchio.Client):
                     ),
                     utils.strjoin('\n', *auto_statuses),
                     utils.strjoin('\n', *potion_statuses),
+                    stats_str,
                     coins,
                 )
 
