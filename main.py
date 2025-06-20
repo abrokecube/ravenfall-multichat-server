@@ -485,11 +485,41 @@ class ChatClient(twitchio.Client):
                 items[item] += 1
                 gift_commands.append(f"!gift {char.user_name} {item}")
         craft_commands = []
+        resources = {}
+        
         for item, count in items.items():
             craft_commands.append(f"!craft {item} {count}")
+        craft_commands.append("")
+            
+        sub_items = items.copy()
+        while True:
+            sub_sub_items = {}
+            for item, count in sub_items.items():
+                item_obj = ravenpy.get_item(item)
+                for ingredient in item_obj.craft_ingredients:
+                    if not ingredient.item.craft_ingredients:
+                        if ingredient.item.name not in resources:
+                            resources[ingredient.item.name] = 0
+                        resources[ingredient.item.name] += ingredient.amount * count
+                        continue
+                    if ingredient.item.name not in sub_sub_items:
+                        sub_sub_items[ingredient.item.name] = 0
+                    sub_sub_items[ingredient.item.name] += ingredient.amount * count
+            for item, count in sub_sub_items.items():
+                craft_commands.append(f"!craft {item} {count}")
+            craft_commands.append("")
+            if len(sub_sub_items) == 0:
+                break
+            sub_items = sub_sub_items
+        required_resources = []
+        for item, count in resources.items():
+            if count > 0:
+                required_resources.append(f"{count}x {item}")
         
         out_text_lines = [
             "Commands for recommended items in " + channel_name,
+            "",
+            "\n".join(required_resources),
             "",
             "\n".join(craft_commands),
             "",
