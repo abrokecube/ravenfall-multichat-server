@@ -130,6 +130,7 @@ class ChatClient(twitchio.Client):
         self.rf_api = rf_api
         self.ran_once = False
         self.player_char_data: Dict[str, ravenpy.Character] = {}
+        self.player_recommendations: Dict[str, List[str]] = {}
         self.current_mult = 1
         self.random_leaves: Dict[str, list[ravenpy.Character]] = {}
         self.desync_per_channel_id: Dict[str, List[float]] = {}
@@ -465,6 +466,33 @@ class ChatClient(twitchio.Client):
             user_in_channel, channel_name, text
         )
 
+    async def handle_recitems(self, channel_id: str, channel_name: str):
+        items = {}
+        gift_commands = []
+        
+        for key in self.player_char_data.keys():
+            char = self.player_char_data[key]
+            recs = self.player_recommendations[key]
+            for item in recs:
+                if item not in items:
+                    items[item] = 0
+                items[item] += 1
+                gift_commands.append(f"!gift {char.user_name} {item}")
+        craft_commands = []
+        for item, count in items.items():
+            craft_commands.append(f"!craft {item} {count}")
+        
+        out_text_lines = [
+            "Commands for recommended items in " + channel_name,
+            "",
+            "\n".join(craft_commands),
+            "",
+            "\n".join(gift_commands),
+        ]
+        text_url = await utils.upload_to_pastes("\n".join(out_text_lines))
+        await self.send_chat_message_as_rand_user(
+            channel_name, f"Commands: {text_url}"
+        )
 
     async def process_commands(self, payload: twitchio.ChatMessage):
         if payload.text[0] in ("!", ">"):
@@ -500,6 +528,9 @@ class ChatClient(twitchio.Client):
                     await self.handle_undo_random_leave(payload.broadcaster.id, payload.broadcaster.name)
                 case "resynctest":
                     await self.resync_routine()
+                case "recitems":
+                    await self.handle_recitems(payload.broadcaster.id, payload.broadcaster.name)
+                    
         if self.user_info.get(payload.broadcaster.id, {}).get("can_add_moderators", False):
             match command:
                 case "scrolls":
@@ -704,7 +735,9 @@ class ChatClient(twitchio.Client):
             for char in result:
                 if char is None:
                     continue
-                self.player_char_data[f"{char.user_name}_{char.index}"] = char
+                char_key = f"{char.user_name}_{char.index}"
+                self.player_char_data[char_key] = char
+                self.player_recommendations[char_key] = []
                 progress = 0
                 
                 if char.training:
@@ -883,6 +916,7 @@ class ChatClient(twitchio.Client):
                     if recommended_island != char.island:
                         rec_island = f"Sail to {recommended_island.name.capitalize()}"
                 
+                rec_items = []
                 short_rec_armor = []
                 rec_armor = ""
                 rec_armor_mat = ravenpy.get_material_for_level(char.defense.level)
@@ -902,6 +936,7 @@ class ChatClient(twitchio.Client):
                         if in_inventory:
                             short_rec_armor.append("*")
                         else:
+                            rec_items.append(f"{langstuff.material_names[rec_armor_mat]} {short_l}")
                             short_rec_armor.append(short_l[0])
                         rec_armor = f"{langstuff.material_names[rec_armor_mat]} set"
                     else:
@@ -923,13 +958,23 @@ class ChatClient(twitchio.Client):
                         inv_check.append(f"{rec_weapon_mat.name} Axe")
                         inv_check.append(f"{rec_weapon_mat.name} 2H Axe")
                     elif eq.weapon.item.material != rec_weapon_mat:
-                        rec_weapon = f"{langstuff.material_names[rec_weapon_mat]} {utils.rm_words(eq.weapon.item.name, 1)}"
+                        weapon_type_name = ""
+                        if "Elder" in eq.weapon.item.name:
+                            weapon_type_name = utils.rm_words(eq.weapon.item.name, 2)
+                        else:
+                            weapon_type_name = utils.rm_words(eq.weapon.item.name, 1)
+                        rec_weapon = f"{langstuff.material_names[rec_weapon_mat]} {weapon_type_name}"
                         inv_check.append(rec_weapon)
 
                     for item_name in inv_check:
                         if char.get_item(item_name):
                             rec_weapon += "*"
                             break
+                    else:
+                        if "weapon" in rec_weapon:
+                            rec_items.append(f"{rec_weapon_mat.name} 2H Sword")
+                        else:
+                            rec_items.append(rec_weapon)
 
                 rec_staff = ""
                 if Skills.Healing in (char.dungeon_combat_style, char.raid_combat_style, char.training)\
@@ -940,6 +985,8 @@ class ChatClient(twitchio.Client):
                         rec_staff = f"{langstuff.material_names[rec_mat]} staff"
                         if char.get_item(f"{langstuff.material_names[rec_mat]} Staff"):
                             rec_staff += "*"
+                        else:
+                            rec_items.append(rec_staff)
                 
                 rec_bow = ""
                 if Skills.Ranged in (char.dungeon_combat_style, char.raid_combat_style, char.training)\
@@ -949,6 +996,10 @@ class ChatClient(twitchio.Client):
                         rec_bow = f"{langstuff.material_names[rec_mat]} bow"
                         if char.get_item(f"{langstuff.material_names[rec_mat]} Bow"):
                             rec_bow += "*"
+                        else:
+                            rec_items.append(rec_bow)
+
+                self.player_recommendations[char_key] = rec_items
                 
                 status_color = "#000000"
                 if char.exp_per_hour == 0 and not char.in_onsen and not char.training == ravenpy.Skills.Sailing:
