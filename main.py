@@ -473,7 +473,13 @@ class ChatClient(twitchio.Client):
         for key in self.player_char_data.keys():
             char = self.player_char_data[key]
             recs = self.player_recommendations[key]
+            char_channel_id = self.account_channels[char.twitch_id][char.index-1]
+            if char_channel_id != channel_id:
+                continue
+            
             for item in recs:
+                if not item:
+                    continue
                 if item not in items:
                     items[item] = 0
                 items[item] += 1
