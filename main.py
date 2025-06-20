@@ -495,7 +495,7 @@ class ChatClient(twitchio.Client):
         while True:
             sub_sub_items = {}
             for item, count in sub_items.items():
-                item_obj = ravenpy.search_item(item, limit=1)[0]
+                item_obj = ravenpy.search_item(item, limit=1)[0][0]
                 for ingredient in item_obj.craft_ingredients:
                     if not ingredient.item.craft_ingredients:
                         if ingredient.item.name not in resources:
