@@ -21,6 +21,7 @@ import time
 import math
 import aiohttp
 import random
+from aiohttp import web
 
 load_dotenv()
 
@@ -58,47 +59,52 @@ class ChannelInfo:
     display_name: str = ""
     live: bool = False
 
-ws: ServerConnection
+connected_clients = set()
 async def ws_handler(ws_: ServerConnection):
-    global ws
     global twitch_client
-    ws = ws_
-    async for data in ws_:
-        print("Recieved: ", data)
-        message = json.loads(data)
-        match message['type']:
-            case "send_message":
-                await twitch_client.send_chat_message(
-                    message['user'], message['channel'], message['text']
-                )
-            case "join":
-                await twitch_client.join_channel(username=message['channel'])
-            case "add_moderator":
-                target_user = await twitch_client.get_id(message['user'])
-                for ch_id, channel in twitch_client.user_info.items():
-                    if channel['can_add_moderators']:
-                        await asyncio.sleep(0.15)
-                        a = twitch_client.create_partialuser(ch_id)
-                        try:
-                            await a.add_moderator(target_user)
-                        except twitchio.exceptions.HTTPException as e:
-                            await twitch_client.send_system_message(f"Failed to add {message['user']} as mod in {channel['name']}: {e.extra['message']}")
-                            continue
-                        await twitch_client.send_system_message(f"Added {message['user']} as mod in {channel['name']}")
+    connected_clients.add(ws_)
+    try:
+        async for data in ws_:
+            print("Recieved: ", data)
+            message = json.loads(data)
+            match message['type']:
+                case "send_message":
+                    await twitch_client.send_chat_message(
+                        message['user'], message['channel'], message['text']
+                    )
+                case "join":
+                    await twitch_client.join_channel(username=message['channel'])
+                case "add_moderator":
+                    target_user = await twitch_client.get_id(message['user'])
+                    for ch_id, channel in twitch_client.user_info.items():
+                        if channel['can_add_moderators']:
+                            await asyncio.sleep(0.15)
+                            a = twitch_client.create_partialuser(ch_id)
+                            try:
+                                await a.add_moderator(target_user)
+                            except twitchio.exceptions.HTTPException as e:
+                                await twitch_client.send_system_message(f"Failed to add {message['user']} as mod in {channel['name']}: {e.extra['message']}")
+                                continue
+                            await twitch_client.send_system_message(f"Added {message['user']} as mod in {channel['name']}")
         ...
+    except Exception as e:
+        print(f"Error in ws_handler: {e}")
 
 async def send_ws(message, text: bool=False):
-    try:
-        await ws.send(
-            message, text
-        )
-        # print(message)
-    except ConnectionClosedError:
-        # logging.warning("WS connection to rfchatter is closed.")
-        pass
-    except NameError:
-        # logging.warning("Waiting for WS connection to rfchatter.")
-        pass
+    disconnected_clients = set()
+    for client in connected_clients:
+        try:
+            await client.send(message, text)
+        except (ConnectionClosedError, RuntimeError):
+            disconnected_clients.add(client)
+        except Exception as e:
+            print(f"Error sending message to client: {e}")
+            disconnected_clients.add(client)
+    
+    # Clean up disconnected clients
+    for client in disconnected_clients:
+        if client in connected_clients:
+            connected_clients.remove(client)
 
 async def ws_serve_task():
     print("Serving WS server...")
@@ -323,7 +329,8 @@ class ChatClient(twitchio.Client):
         await self.send_chat_message(char.user_name, channel_name, text)
 
     async def handle_ping(self, channel_id: str, channel_name: str):
-        await self.send_chat_message_as_rand_user(channel_name, f'[rf-multichat] Pong! Watching {len(self.player_char_data)} characters.')
+        await self.send_chat_message_as_rand_user(
+            channel_name, f'[rf-multichat] Pong! Watching {len(self.player_char_data)} characters.')
 
     async def handle_raid(self, channel_id: str, channel_name: str):
         for char in self.player_char_data.values():
@@ -534,69 +541,74 @@ class ChatClient(twitchio.Client):
         if payload.text[0] in ("!", ">"):
             await self.parse_chat_command(payload.text, payload.chatter.id, payload.broadcaster.id)
             return
+        await self.process_command_thing(
+            payload.text, payload.chatter.id, payload.chatter.name, payload.broadcaster.id, payload.broadcaster.name
+        )
+        
+    async def process_command_thing(self, text: str, user_id: str, user_name: str, channel_id: str, channel_name: str):
         prefix = "?"
-        if len(payload.text) < len(prefix) + 1 or payload.text[0] != "?":
+        if len(text) < len(prefix) + 1 or text[0] != "?":
             return
-        spl = payload.text[len(prefix):].split()
+        spl = text[len(prefix):].split()
         command = spl[0].lower()
         args = spl[1:]
-        if self.user_info.get(payload.chatter.id, {}).get("can_execute_commands", False):
+        if self.user_info.get(user_id, {}).get("can_execute_commands", False):
             match command:
                 case "sailall":
-                    await self.handle_sail(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_sail(channel_id, channel_name)
                 case "raidall":
-                    await self.handle_raid(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_raid(channel_id, channel_name)
                 case "sail":
                     await self.handle_exec_as_joined(
-                        payload.broadcaster.id, payload.broadcaster.name, 
-                        payload.chatter.name, f"!sail {' '.join(args)}"
+                        channel_id, channel_name, 
+                        user_name, f"!sail {' '.join(args)}"
                     )
                 case "say":
                     await self.handle_exec_as_joined(
-                        payload.broadcaster.id, payload.broadcaster.name, 
-                        payload.chatter.name, ' '.join(args)
+                        channel_id, channel_name, 
+                        user_name, ' '.join(args)
                     )
                 case "randleave":
-                    await self.handle_random_leave(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_random_leave(channel_id, channel_name)
                 case "undorandleave":
-                    await self.handle_undo_random_leave(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_undo_random_leave(channel_id, channel_name)
                 case "randleaveundo":
-                    await self.handle_undo_random_leave(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_undo_random_leave(channel_id, channel_name)
                 case "resynctest":
                     await self.resync_routine()
                 case "recitems":
-                    await self.handle_recitems(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_recitems(channel_id, channel_name)
                     
-        if self.user_info.get(payload.broadcaster.id, {}).get("can_add_moderators", False):
+        if self.user_info.get(channel_id, {}).get("can_add_moderators", False):
             match command:
                 case "scrolls":
                     get_total = False
                     if args and args[0].lower() == "all":
                         get_total = True
-                    await self.handle_count_scrolls(payload.broadcaster.id, payload.broadcaster.name, payload.chatter.name, get_total)
+                    await self.handle_count_scrolls(channel_id, channel_name, user_name, get_total)
                 case "ds":
-                    await self.handle_dungeon_scroll(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_dungeon_scroll(channel_id, channel_name)
                 case "rs":
-                    await self.handle_raid_scroll(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_raid_scroll(channel_id, channel_name)
                 case "fs":
-                    await self.handle_ferry_scroll(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_ferry_scroll(channel_id, channel_name)
                 case "exps":
                     scroll_count = 100 - self.current_mult
                     if len(args) > 0 and args[0].isdigit():
                         scroll_count = int(args[0])
-                    await self.handle_exp_scroll(payload.broadcaster.id, payload.broadcaster.name, scroll_count, payload.chatter.name)
+                    await self.handle_exp_scroll(channel_id, channel_name, scroll_count, user_name)
                 case "resync":
-                    await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_random_relog(channel_id, channel_name)
                 case "randrelog":
-                    await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_random_relog(channel_id, channel_name)
                 case "relog":
-                    await self.handle_random_relog(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_random_relog(channel_id, channel_name)
                 case "ping":
-                    await self.handle_ping(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_ping(channel_id, channel_name)
                 case "towndesync":
-                    await self.handle_town_desync(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_town_desync(channel_id, channel_name)
                 case "desync":
-                    await self.handle_town_desync(payload.broadcaster.id, payload.broadcaster.name)
+                    await self.handle_town_desync(channel_id, channel_name)
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
@@ -1163,8 +1175,58 @@ class ChatClient(twitchio.Client):
             print(f"No resync needed.")
    
 
+class CommandServer:
+    def __init__(self, chat_client: 'ChatClient', host: str = '0.0.0.0', port: int = 8080):
+        self.chat_client = chat_client
+        self.host = host
+        self.port = port
+        self.app = web.Application()
+        self.app.add_routes([
+            web.post('/command', self.handle_command)
+        ])
+
+    async def handle_command(self, request):
+        try:
+            data = await request.json()
+            text = data.get('text', '')
+            user_id = data.get('user_id', '')
+            user_name = data.get('user_name', 'http_client')
+            channel_id = data.get('channel_id', '')
+            channel_name = data.get('channel_name', '')
+
+            if not all([text, user_id, channel_id, channel_name]):
+                return web.json_response(
+                    {'status': 'error', 'message': 'Missing required fields'},
+                    status=400
+                )
+
+            await self.chat_client.process_command_thing(
+                text=text,
+                user_id=user_id,
+                user_name=user_name,
+                channel_id=channel_id,
+                channel_name=channel_name
+            )
+            return web.json_response({'status': 'success'})
+
+        except Exception as e:
+            LOGGER.error(f"Error processing command: {str(e)}")
+            return web.json_response(
+                {'status': 'error', 'message': str(e)},
+                status=500
+            )
+
+    async def start(self):
+        runner = web.AppRunner(self.app)
+        await runner.setup()
+        site = web.TCPSite(runner, self.host, self.port)
+        await site.start()
+        LOGGER.info(f"Command server started on http://{self.host}:{self.port}")
+
+
 rfapi: ravenpy.RavenNest
 twitch_client: ChatClient
+command_server: CommandServer
 async def main() -> None:
     # Setup logging, this is optional, however a nice to have...
     twitchio.utils.setup_logging(level=logging.INFO)
@@ -1175,7 +1237,10 @@ async def main() -> None:
         global twitch_client
         async with ChatClient(rfapi) as bot:
             twitch_client = bot
+            command_server = CommandServer(bot, os.getenv("COMMAND_SERVER_HOST"), int(os.getenv("COMMAND_SERVER_PORT")))
+            asyncio.create_task(command_server.start())
             await bot.start()
+
 
     try:
         await runner()
