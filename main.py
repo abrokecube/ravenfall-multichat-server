@@ -28,9 +28,9 @@ load_dotenv()
 # http://localhost:4343/oauth?scopes=user:read:chat%20user:write:chat%20user:bot%20channel:manage:moderators
 
 LOGGER: logging.Logger = logging.getLogger("Bot")
-BOT_ID = 756734432
-CLIENT_ID = "***REMOVED***"
-CLIENT_SECRET = "***REMOVED***"
+BOT_ID = os.getenv("BOT_ID")
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 
 # From https://lospec.com/palette-list/bubblegum-16
 COLORS = [
