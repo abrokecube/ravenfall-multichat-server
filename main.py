@@ -717,10 +717,6 @@ class ChatClient(twitchio.Client):
 
     @routines.routine(delta=timedelta(seconds=5))
     async def send_channels(self):
-        try:
-            await ws.ping()
-        except:
-            return
         data = []
         for idx, channel_key in enumerate(self.connected_channels.keys()):
             channel = self.connected_channels[channel_key]
