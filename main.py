@@ -141,6 +141,7 @@ class ChatClient(twitchio.Client):
         self.random_leaves: Dict[str, list[ravenpy.Character]] = {}
         self.desync_per_channel_id: Dict[str, List[float]] = {}
         self.desync_last_update_time: float = 0
+        self._is_online: bool = False
     
     async def get_username(self, user_id: str):
         user_id = str(user_id)
@@ -728,6 +729,11 @@ class ChatClient(twitchio.Client):
             "data": data
         }))
 
+    @property
+    def is_online(self) -> bool:
+        """Returns True if the last API request was successful, False otherwise."""
+        return self._is_online
+
     @routines.routine(delta=timedelta(seconds=10))
     async def fetch_rf_api(self):
         # try:
@@ -743,9 +749,15 @@ class ChatClient(twitchio.Client):
         while True:
             try:
                 mult = await self.rf_api.get_global_mult()
+                self._is_online = True
                 break
             except aiohttp.client_exceptions.ClientConnectorError:
+                self._is_online = False
                 logging.error("Failed to connect to RavenNest! Retrying in 5s")
+                await asyncio.sleep(5)
+            except Exception as e:
+                self._is_online = False
+                logging.error(f"Error in fetch_rf_api: {str(e)}")
                 await asyncio.sleep(5)
         mult_event = mult.event_name or ""
         await send_ws(json.dumps({
@@ -1147,11 +1159,14 @@ class ChatClient(twitchio.Client):
             "seconds": avg_desync
         }))
     
-    @routines.routine(delta=timedelta(minutes=10), wait_first=True)
+    @routines.routine(delta=timedelta(minutes=5), wait_first=True)
     async def resync_routine(self):
         if time.time() - self.desync_last_update_time > 300:
             print("Desync data is too old!")
             self.fetch_rf_api.restart()
+            return
+        if not self._is_online:
+            print("Not online, skipping resync routine.")
             return
         print(', '.join([
             f'{self.user_info.get(x, {}).get("name", "")}: {round(y, 3)}s'
