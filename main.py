@@ -1159,7 +1159,7 @@ class ChatClient(twitchio.Client):
             "seconds": avg_desync
         }))
     
-    @routines.routine(delta=timedelta(minutes=5), wait_first=True)
+    @routines.routine(delta=timedelta(minutes=2), wait_first=True)
     async def resync_routine(self):
         if time.time() - self.desync_last_update_time > 300:
             print("Desync data is too old!")
@@ -1177,7 +1177,7 @@ class ChatClient(twitchio.Client):
             if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
                 continue
             user_name = self.user_info.get(channel_id, {}).get("name", "")
-            if abs(desync) > 60*1:  # 1 minute
+            if abs(desync) > 30:  # 30 seconds
                 await self.handle_random_relog(channel_id, user_name)
                 resynced_channels.append(user_name)
         if resynced_channels:
