@@ -292,7 +292,7 @@ class ChatClient(twitchio.Client):
                 and char.training not in (None, Skills.Sailing):
                     if not (char.in_dungeon or char.in_raid):
                         await self.send_chat_message(char.user_name, channel_name, '!leave')
-                        await asyncio.sleep(1)
+                        await asyncio.sleep(5)
                         await self.send_chat_message(char.user_name, channel_name, f'!join {char.index}')
                         return
         print("No eligible characters for relog")
