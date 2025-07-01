@@ -139,7 +139,7 @@ class ChatClient(twitchio.Client):
         self.player_recommendations: Dict[str, List[str]] = {}
         self.current_mult = 1
         self.random_leaves: Dict[str, list[ravenpy.Character]] = {}
-        self.desync_per_channel_id: Dict[str, List[float]] = {}
+        self.desync_per_channel_id: Dict[str, float] = {}
         self.desync_last_update_time: float = 0
         self._is_online: bool = False
     
