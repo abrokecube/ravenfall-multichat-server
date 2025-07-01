@@ -1159,31 +1159,12 @@ class ChatClient(twitchio.Client):
             "seconds": avg_desync
         }))
     
-    # @routines.routine(delta=timedelta(minutes=2), wait_first=True)
-    # async def resync_routine(self):
-    #     if time.time() - self.desync_last_update_time > 300:
-    #         print("Desync data is too old!")
-    #         self.fetch_rf_api.restart()
-    #         return
-    #     if not self._is_online:
-    #         print("Not online, skipping resync routine.")
-    #         return
-    #     print(', '.join([
-    #         f'{self.user_info.get(x, {}).get("name", "")}: {round(y, 3)}s'
-    #         for x, y in self.desync_per_channel_id.items()
-    #     ]))
-    #     resynced_channels = []
-    #     for channel_id, desync in self.desync_per_channel_id.items():
-    #         if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
-    #             continue
-    #         user_name = self.user_info.get(channel_id, {}).get("name", "")
-    #         if abs(desync) > 30:  # 30 seconds
-    #             await self.handle_random_relog(channel_id, user_name)
-    #             resynced_channels.append(user_name)
-    #     if resynced_channels:
-    #         print(f"Attempted resync for {', '.join(resynced_channels)}")
-    #     else:
-    #         print(f"No resync needed.")
+    @routines.routine(delta=timedelta(minutes=2), wait_first=True)
+    async def resync_routine(self):
+        if time.time() - self.desync_last_update_time > 300:
+            print("Desync data is too old! Restarting fetch_rf_api...")
+            self.fetch_rf_api.restart()
+            return
    
 
 class CommandServer:
