@@ -91,7 +91,7 @@ async def get_desync_info() -> DesyncResponse:
     Returns:
         dict: The JSON response containing desync information
     """
-    url = f"{BASE_URL}/desync"
+    url = f"{BASE_URL}/get_desync"
     
     try:
         async with aiohttp.ClientSession() as session:
