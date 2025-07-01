@@ -613,7 +613,7 @@ class ChatClient(twitchio.Client):
 
     _action_re = re.compile("^\u0001?ACTION ")
     async def event_message(self, payload: twitchio.ChatMessage):
-        print(f"#{payload.broadcaster.name}: {payload.chatter.name}: {payload.text}")
+        # print(f"#{payload.broadcaster.name}: {payload.chatter.name}: {payload.text}")
         # aga = self.mention_re.search(payload.text)
         aga = True
         if aga:
