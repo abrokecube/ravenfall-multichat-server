@@ -142,7 +142,6 @@ class ChatClient(twitchio.Client):
         self.desync_per_channel_id: Dict[str, List[float]] = {}
         self.desync_last_update_time: float = 0
         self._is_online: bool = False
-        self.town_ids_dungeoning: set[str] = set()
     
     async def get_username(self, user_id: str):
         user_id = str(user_id)
@@ -776,7 +775,6 @@ class ChatClient(twitchio.Client):
         ]
         desync_samples = []
         desync_samples_per_channel: Dict[str, List[float]] = {}
-        town_ids_dungeoning = set()
         for user_id_group in users_grouped:
             out_data = []
             # results = await get_characters(self.rf_api, user_id)
@@ -1108,8 +1106,6 @@ class ChatClient(twitchio.Client):
                     stats_str,
                     coins,
                 )
-                if char.in_dungeon or char.has_joined_dungeon:
-                    town_ids_dungeoning.add(channel_id)
 
                 aga = {
                     "id": char.char_id,
@@ -1136,8 +1132,6 @@ class ChatClient(twitchio.Client):
                 "type": "update_chars",
                 "data": out_data
             }))
-
-        self.town_ids_dungeoning = town_ids_dungeoning
 
         desync_samples.sort()
         sample_trim = int(round(len(desync_samples) * .2))
@@ -1181,9 +1175,6 @@ class ChatClient(twitchio.Client):
         resynced_channels = []
         for channel_id, desync in self.desync_per_channel_id.items():
             if not self.user_info.get(channel_id, {}).get("can_add_moderators", False):
-                continue
-            if channel_id in self.town_ids_dungeoning:
-                print(f"Skipping {self.user_info.get(channel_id, {}).get("name", "")} because of dungeon.")
                 continue
             user_name = self.user_info.get(channel_id, {}).get("name", "")
             if abs(desync) > 30:  # 30 seconds
