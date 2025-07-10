@@ -33,6 +33,7 @@ LOGGER: logging.Logger = logging.getLogger("Bot")
 BOT_ID = os.getenv("BOT_ID")
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+RANDOM_CHAR_BLACKLIST = ['potatbotat', 'abrokecube']
 
 # From https://lospec.com/palette-list/bubblegum-16
 COLORS = [
@@ -319,7 +320,7 @@ class ChatClient(twitchio.Client):
         char_data_list = list(self.player_char_data.values())
         char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
         for char in char_data_list_shuffled:
-            if char.user_name.lower() == "potatbotat":
+            if char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
                 continue
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
@@ -597,13 +598,12 @@ class ChatClient(twitchio.Client):
                 sender_user = _as_user_flag.value.strip()
             else:
                 sender_user = caller_username
-        blacklist = ['potatbotat', 'abrokecube']
         if not sender_user:
             for char in self.player_char_data.values():
                 channel = self.account_channels[char.twitch_id][char.index-1]
                 if channel != channel_id:
                     continue
-                if char.user_name.lower() in blacklist:
+                if char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
                     continue
                 if char.user_name != caller_username:
                     sender_user = char.user_name
