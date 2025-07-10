@@ -463,11 +463,16 @@ class ChatClient(twitchio.Client):
     
     async def handle_count_items(self, channel_id: str, channel_name: str, caller_username: str, args_: str):
         args = CommandArgs(args_)
-        item_name = ""
+        item_name_args = []
         for arg in args.args:
             if isinstance(arg, str):
-                item_name = arg.strip()
+                item_name_args.append(arg.strip())
                 break
+            else:
+                if len(item_name_args) > 0:
+                    break
+        item_name = " ".join(item_name_args).strip()
+        
         total_items = False
         if args.get_flag(['a', 'all', 't', 'total'], case_sensitive=False):
             total_items = True
