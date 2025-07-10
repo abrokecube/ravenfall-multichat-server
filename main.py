@@ -549,7 +549,7 @@ class ChatClient(twitchio.Client):
             if not gift_to:
                 extended_output.append(f"    {char_item['char_name']}: {char_item['amount']}x")
             else:
-                extended_output.append(f"    {char_item['char_name']} !gift {gift_to} {item.name} {char_item['amount']}")
+                extended_output.append(f"    ?say -as:{char_item['char_name']} !gift {gift_to} {item.name} {char_item['amount']}")
         if total_items:
             pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
             await self.send_chat_message(
@@ -572,17 +572,31 @@ class ChatClient(twitchio.Client):
                 f"{total_per_channel_id[channel_id]}x {item.name} here. {pastas_url}"
             )
 
-    async def handle_exec_as_joined(self, channel_id: str, channel_name: str, caller_username: str, text: str):
-        user_in_channel = ""
-        for char in self.player_char_data.values():
-            channel = self.account_channels[char.twitch_id][char.index-1]
-            if channel != channel_id:
-                continue
-            if (not user_in_channel) and (char.user_name != caller_username):
-                user_in_channel = char.user_name
+    async def handle_exec_as_joined(self, channel_id: str, channel_name: str, caller_username: str, text_: str):
+        args = CommandArgs(text_)
+        text = ""
+        for arg in args.args:
+            if isinstance(arg, str):
+                text = arg.strip()
                 break
+        sender_user = None
+        _as_user_flag = args.get_flag(['as', 'a', 'user', 'u'], case_sensitive=False)
+        if _as_user_flag:
+            if _as_user_flag.value:
+                sender_user = _as_user_flag.value.strip()
+            else:
+                sender_user = caller_username
+        
+        if not sender_user:
+            for char in self.player_char_data.values():
+                channel = self.account_channels[char.twitch_id][char.index-1]
+                if channel != channel_id:
+                    continue
+                if char.user_name != caller_username:
+                    sender_user = char.user_name
+                    break
         await self.send_chat_message(
-            user_in_channel, channel_name, text
+            sender_user, channel_name, text
         )
 
     async def handle_recitems(self, channel_id: str, channel_name: str):
