@@ -459,7 +459,82 @@ class ChatClient(twitchio.Client):
             await self.send_chat_message(
                 user_to_speak, channel_name, f"Available scrolls - {scroll_counts_text}"
             )
+    
+    async def handle_count_items(self, channel_id: str, channel_name: str, caller_username: str, item_name: str, total_items: bool = False):
+        rand_char = self.get_random_char_in_channel(channel_name)
+        if len(item_name) < 2:
+            await self.send_chat_message(
+                caller_username, channel_name, "Item name must be at least 2 characters long"
+            )
+            return
+        item_result = ravenpy.search_item(item_name, limit=1)
+        if not item_result:
+            await self.send_chat_message(
+                char.user_name, channel_name, f"Item '{item_name}' not found"
+            )
+            return
+        item: ravenpy.Item = item_result[0][0]
+        char_item_stuff = []
+        for char in self.player_char_data.values():
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            char_item = char.get_item(item)
+            if not char_item:
+                continue
+            a = {
+                "char_name": char.user_name,
+                "amount": char_item.amount,
+                "channel_id": channel,
+            }
+            char_item_stuff.append(a)
+        if not char_item_stuff:
+            await self.send_chat_message(
+                char.user_name, channel_name, f"No {item.name} was found."
+            )
+            return
+        char_item_stuff.sort(key=lambda x: x['amount'], reverse=True)
+        char_item_stuff.sort(key=lambda x: x['channel_id'])
+        
+        total_per_channel_id = {}
+        total_count = 0
+        for char_item in char_item_stuff:
+            if char_item['channel_id'] not in total_per_channel_id:
+                total_per_channel_id[char_item['channel_id']] = 0
+            total_per_channel_id[char_item['channel_id']] += char_item['amount']
+            total_count += char_item['amount']
             
+        extended_output = []
+        last_channel_id = None
+        for char_item in char_item_stuff:
+            if (not total_items) and char_item['channel_id'] != channel_id:
+                continue
+            if last_channel_id != char_item['channel_id']:
+                if last_channel_id is not None:
+                    extended_output.append("")
+                last_channel_id = char_item['channel_id']
+                channel_name = await self.get_username(last_channel_id)
+                extended_output.append(f"{channel_name} ({total_per_channel_id[last_channel_id]}x)")
+            extended_output.append(f"    {char_item['char_name']}: {char_item['amount']}x")
+        if total_items:
+            pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
+            await self.send_chat_message(
+                rand_char.user_name,
+                channel_name,
+                f"{total_count}x {item.name} total. {pastas_url}"
+            )
+        else:
+            if not channel_id in total_per_channel_id:
+                await self.send_chat_message(
+                    rand_char.user_name,
+                    channel_name,
+                    f"No {item.name} here :/"
+                )
+                return
+            pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
+            await self.send_chat_message(
+                rand_char.user_name,
+                channel_name, 
+                f"{total_per_channel_id[channel_id]}x {item.name} here. {pastas_url}"
+            )
 
     async def handle_exec_as_joined(self, channel_id: str, channel_name: str, caller_username: str, text: str):
         user_in_channel = ""
@@ -587,6 +662,16 @@ class ChatClient(twitchio.Client):
                     if args and args[0].lower() == "all":
                         get_total = True
                     await self.handle_count_scrolls(channel_id, channel_name, user_name, get_total)
+                case "count":
+                    get_total = False
+                    if args and args[0].lower() == "all":
+                        get_total = True
+                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args), get_total)
+                case "items":
+                    get_total = False
+                    if args and args[0].lower() == "all":
+                        get_total = True
+                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args), get_total)
                 case "ds":
                     await self.handle_dungeon_scroll(channel_id, channel_name)
                 case "rs":

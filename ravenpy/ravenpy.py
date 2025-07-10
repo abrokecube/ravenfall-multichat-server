@@ -717,7 +717,7 @@ def experience_for_level(level):
         return experience_array[len(experience_array) - 1]
     return (0 if level - 2 < 0 else experience_array[level - 2])
 
-def search_item(name: str, limit=10):
+def search_item(name: str, limit=10) -> List[Tuple[Item, int]]:
     search_result = thefuzz.process.extract(name, _items_names, limit=limit, scorer=thefuzz.fuzz.ratio)
     out_results = []
     for result, score in search_result:
