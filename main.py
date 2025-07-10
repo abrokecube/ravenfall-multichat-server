@@ -533,6 +533,7 @@ class ChatClient(twitchio.Client):
         for char_item in char_item_stuff:
             if char_item['channel_id'] not in total_per_channel_id:
                 total_per_channel_id[char_item['channel_id']] = 0
+            total_per_channel_id[char_item['channel_id']] += char_item['amount']
             
         extended_output = []
         last_channel_id = None
