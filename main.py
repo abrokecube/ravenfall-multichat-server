@@ -666,12 +666,18 @@ class ChatClient(twitchio.Client):
                     get_total = False
                     if args and args[0].lower() == "all":
                         get_total = True
-                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args), get_total)
+                        item_name = " ".join(args[1:])
+                    else:
+                        item_name = " ".join(args)
+                    await self.handle_count_items(channel_id, channel_name, user_name, item_name, get_total)
                 case "items":
                     get_total = False
                     if args and args[0].lower() == "all":
                         get_total = True
-                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args), get_total)
+                        item_name = " ".join(args[1:])
+                    else:
+                        item_name = " ".join(args)
+                    await self.handle_count_items(channel_id, channel_name, user_name, item_name, get_total)
                 case "ds":
                     await self.handle_dungeon_scroll(channel_id, channel_name)
                 case "rs":
