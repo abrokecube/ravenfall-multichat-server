@@ -501,17 +501,24 @@ class ChatClient(twitchio.Client):
             return
         item: ravenpy.Item = item_result[0][0]
         char_item_stuff = []
+        total_count = 0
         for char in self.player_char_data.values():
             channel = self.account_channels[char.twitch_id][char.index-1]
             char_item = char.get_item(item)
             if not char_item:
                 continue
+            trim_amount = 0
+            if total_count + char_item.amount > max_count and max_count > 0:
+                trim_amount = total_count + char_item.amount - max_count
             a = {
                 "char_name": char.user_name,
-                "amount": char_item.amount,
+                "amount": char_item.amount - trim_amount,
                 "channel_id": channel,
             }
+            total_count += char_item.amount - trim_amount
             char_item_stuff.append(a)
+            if trim_amount > 0:
+                break
         if not char_item_stuff:
             await self.send_chat_message(
                 rand_char.user_name, channel_name, f"No {item.name} was found."
@@ -522,17 +529,9 @@ class ChatClient(twitchio.Client):
         char_item_stuff.sort(key=lambda x: x['channel_id'] == channel_id, reverse=True)
         
         total_per_channel_id = {}
-        total_count = 0
         for char_item in char_item_stuff:
             if char_item['channel_id'] not in total_per_channel_id:
                 total_per_channel_id[char_item['channel_id']] = 0
-            trim_amount = 0
-            if total_count + char_item['amount'] > max_count and max_count > 0:
-                trim_amount = total_count + char_item['amount'] - max_count
-            total_per_channel_id[char_item['channel_id']] += char_item['amount'] - trim_amount
-            total_count += char_item['amount'] - trim_amount
-            if trim_amount > 0:
-                break
             
         extended_output = []
         last_channel_id = None
@@ -548,7 +547,7 @@ class ChatClient(twitchio.Client):
             if not gift_to:
                 extended_output.append(f"    {char_item['char_name']}: {char_item['amount']}x")
             else:
-                extended_output.append(f"    !gift {gift_to} {char_item['char_name']} {char_item['amount']}")
+                extended_output.append(f"    {char_item['char_name']} !gift {gift_to} {item.name} {char_item['amount']}")
         if total_items:
             pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
             await self.send_chat_message(
