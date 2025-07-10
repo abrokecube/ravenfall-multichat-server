@@ -710,7 +710,11 @@ class ChatClient(twitchio.Client):
                     await self.resync_routine()
                 case "recitems":
                     await self.handle_recitems(channel_id, channel_name)
-                    
+                case "count":
+                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
+                case "items":
+                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
+
         if self.user_info.get(channel_id, {}).get("can_add_moderators", False):
             match command:
                 case "scrolls":
@@ -718,10 +722,6 @@ class ChatClient(twitchio.Client):
                     if args and args[0].lower() == "all":
                         get_total = True
                     await self.handle_count_scrolls(channel_id, channel_name, user_name, get_total)
-                case "count":
-                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
-                case "items":
-                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
                 case "ds":
                     await self.handle_dungeon_scroll(channel_id, channel_name)
                 case "rs":
