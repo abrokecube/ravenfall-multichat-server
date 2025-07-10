@@ -532,6 +532,7 @@ class ChatClient(twitchio.Client):
             )
             return
         char_item_stuff.sort(key=lambda x: x['amount'], reverse=True)
+        char_item_stuff.sort(key=lambda x: x['channel_id'])
         
         total_per_channel_id = {}
         for char_item in char_item_stuff:
