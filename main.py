@@ -582,11 +582,14 @@ class ChatClient(twitchio.Client):
 
     async def handle_exec_as_joined(self, channel_id: str, channel_name: str, caller_username: str, text_: str):
         args = CommandArgs(text_)
-        text = ""
+        text_args = []
         for arg in args.args:
             if isinstance(arg, str):
-                text = arg.strip()
-                break
+                text_args.append(arg.strip())
+            else:
+                if len(text_args) > 0:
+                    break
+        text = " ".join(text_args).strip()
         sender_user = None
         _as_user_flag = args.get_flag(['as', 'a', 'user', 'u'], case_sensitive=False)
         if _as_user_flag:
