@@ -467,7 +467,6 @@ class ChatClient(twitchio.Client):
         for arg in args.args:
             if isinstance(arg, str):
                 item_name_args.append(arg.strip())
-                break
             else:
                 if len(item_name_args) > 0:
                     break
