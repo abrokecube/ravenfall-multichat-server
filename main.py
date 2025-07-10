@@ -597,11 +597,13 @@ class ChatClient(twitchio.Client):
                 sender_user = _as_user_flag.value.strip()
             else:
                 sender_user = caller_username
-        
+        blacklist = ['potatbotat', 'abrokecube']
         if not sender_user:
             for char in self.player_char_data.values():
                 channel = self.account_channels[char.twitch_id][char.index-1]
                 if channel != channel_id:
+                    continue
+                if char.user_name.lower() in blacklist:
                     continue
                 if char.user_name != caller_username:
                     sender_user = char.user_name
