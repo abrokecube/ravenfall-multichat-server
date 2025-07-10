@@ -470,7 +470,7 @@ class ChatClient(twitchio.Client):
         item_result = ravenpy.search_item(item_name, limit=1)
         if not item_result:
             await self.send_chat_message(
-                char.user_name, channel_name, f"Item '{item_name}' not found"
+                rand_char.user_name, channel_name, f"Item '{item_name}' not found"
             )
             return
         item: ravenpy.Item = item_result[0][0]
@@ -488,7 +488,7 @@ class ChatClient(twitchio.Client):
             char_item_stuff.append(a)
         if not char_item_stuff:
             await self.send_chat_message(
-                char.user_name, channel_name, f"No {item.name} was found."
+                rand_char.user_name, channel_name, f"No {item.name} was found."
             )
             return
         char_item_stuff.sort(key=lambda x: x['amount'], reverse=True)
@@ -511,8 +511,8 @@ class ChatClient(twitchio.Client):
                 if last_channel_id is not None:
                     extended_output.append("")
                 last_channel_id = char_item['channel_id']
-                channel_name = await self.get_username(last_channel_id)
-                extended_output.append(f"{channel_name} ({total_per_channel_id[last_channel_id]}x)")
+                channel_name_ = await self.get_username(last_channel_id)
+                extended_output.append(f"{channel_name_} ({total_per_channel_id[last_channel_id]}x)")
             extended_output.append(f"    {char_item['char_name']}: {char_item['amount']}x")
         if total_items:
             pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
