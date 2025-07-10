@@ -15,6 +15,9 @@ from enum import Enum
 from math import inf
 import aiohttp
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class TimeSize(Enum):
     SMALL = 0
@@ -379,6 +382,7 @@ def get_item_split_query():
 
 async def upload_to_pastes(text: str):
     async with aiohttp.ClientSession() as s:
+        logger.info(f"Uploading text (length {len(text)}) to pastes.dev")
         r = await s.post(
             "https://api.pastes.dev/post",
             headers={
@@ -387,8 +391,11 @@ async def upload_to_pastes(text: str):
             data=text
         )
         if r.status == 201:
-            return f"https://pastes.dev/{(await r.json())['key']}"
+            url = f"https://pastes.dev/{(await r.json())['key']}"
+            logger.info(f"Upload successful: {url}")
+            return url
         else:
+            logger.error(f"Failed to upload text to pastes.dev: {r.status} {await r.text()}")
             return None
 
 def get_char_identifier(char: ravenpy.Character):
