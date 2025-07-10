@@ -502,7 +502,10 @@ class ChatClient(twitchio.Client):
         item: ravenpy.Item = item_result[0][0]
         char_item_stuff = []
         total_count = 0
-        for char in self.player_char_data.values():
+        all_characters = list(self.player_char_data.values())
+        all_characters.sort(key=lambda x: self.account_channels[x.twitch_id][x.index-1])
+        all_characters.sort(key=lambda x: self.account_channels[x.twitch_id][x.index-1] == channel_id, reverse=True)
+        for char in all_characters:
             channel = self.account_channels[char.twitch_id][char.index-1]
             char_item = char.get_item(item)
             if not char_item:
@@ -525,8 +528,6 @@ class ChatClient(twitchio.Client):
             )
             return
         char_item_stuff.sort(key=lambda x: x['amount'], reverse=True)
-        char_item_stuff.sort(key=lambda x: x['channel_id'])
-        char_item_stuff.sort(key=lambda x: x['channel_id'] == channel_id, reverse=True)
         
         total_per_channel_id = {}
         for char_item in char_item_stuff:
