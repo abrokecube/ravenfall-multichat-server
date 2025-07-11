@@ -243,6 +243,7 @@ class CharacterEquipment:
 
 fighting_replacements = {
     "Atk": "Attack",
+    "Att": "Attack",
     "Heal": "Healing",
     "Def": "Defense",
     "Str": "Strength"
@@ -355,7 +356,8 @@ class Character:
         if state['island'] != "None":
             self.island: Islands = _getitem_or_none(state['island'], Islands)
         self.destination: Islands = _getitem_or_none(state['destination'], Islands)
-        self.waiting_for_ferry: bool = self.destination and self.destination == self.island
+        # self.waiting_for_ferry: bool = self.destination and self.destination == self.island
+        self.waiting_for_ferry: bool = False
         self.estimated_level_time: datetime = _call_or_none(state['estimatedTimeForLevelUp'], _parse_time)
         self.x: int = state['x']
         self.y: int = state['y']
