@@ -1392,7 +1392,7 @@ class CommandServer:
                         channel_samples[char_data.channel_id] = []
                     channel_samples[char_data.channel_id].append(char_data.desync_s)
                     if char_data.last_update_time.timestamp() > desync_last_update_time:
-                        desync_last_update_time = char_data.last_update_time
+                        desync_last_update_time = char_data.last_update_time.timestamp()
 
             desync_per_channel_id: Dict[str, float] = {}
             for channel_id, samples in channel_samples.items():
