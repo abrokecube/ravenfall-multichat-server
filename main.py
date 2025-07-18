@@ -123,6 +123,14 @@ async def get_characters(rfapi: ravenpy.RavenNest, user_id: str=None):
     user_chars = [x for x in user_chars if isinstance(x, ravenpy.Character)]
     return user_chars
 
+@dataclass
+class CharData:
+    char: ravenpy.Character
+    desync_s: float | None = None
+    last_update_time: datetime = datetime.now(timezone.utc)
+    channel_name: str | None = None
+    channel_id: str | None = None
+    recommendations: List[str] = []
 
 class ChatClient(twitchio.Client):
     def __init__(self, rf_api: ravenpy.RavenNest=None):
@@ -137,7 +145,7 @@ class ChatClient(twitchio.Client):
         self.mention_re: re.Pattern = None
         self.rf_api = rf_api
         self.ran_once = False
-        self.player_char_data: Dict[str, ravenpy.Character] = {}
+        self.player_char_data: Dict[str, CharData] = {}
         self.player_recommendations: Dict[str, List[str]] = {}
         self.current_mult = 1
         self.random_leaves: Dict[str, list[ravenpy.Character]] = {}
@@ -255,7 +263,8 @@ class ChatClient(twitchio.Client):
         print(mention_re_text)
     
     async def handle_sail(self, channel_id: str, channel_name: str):
-        for char in self.player_char_data.values():
+        for char_data in self.player_char_data.values():
+            char = char_data.char
             if char.training in (None, Skills.Sailing):
                 if char.in_dungeon or char.in_raid:
                     continue
@@ -272,7 +281,8 @@ class ChatClient(twitchio.Client):
             self.random_leaves[channel_id] = []
         char_data_list = list(self.player_char_data.values())
         char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
-        for char in char_data_list_shuffled:
+        for char_data in char_data_list_shuffled:
+            char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id \
                 and char.twitch_id != os.getenv("OWNER_ID") \
@@ -287,7 +297,8 @@ class ChatClient(twitchio.Client):
             self.random_leaves[channel_id] = []
         char_data_list = list(self.player_char_data.values())
         char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
-        for char in char_data_list_shuffled:
+        for char_data in char_data_list_shuffled:
+            char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
                 if char.twitch_id != os.getenv("OWNER_ID") \
@@ -319,7 +330,8 @@ class ChatClient(twitchio.Client):
         channel_id = self.username_to_id[channel_name.lower()]
         char_data_list = list(self.player_char_data.values())
         char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
-        for char in char_data_list_shuffled:
+        for char_data in char_data_list_shuffled:
+            char = char_data.char
             if char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
                 continue
             channel = self.account_channels[char.twitch_id][char.index-1]
@@ -338,7 +350,8 @@ class ChatClient(twitchio.Client):
             channel_name, f'[rf-multichat] Pong! Watching {len(self.player_char_data)} characters.')
 
     async def handle_raid(self, channel_id: str, channel_name: str):
-        for char in self.player_char_data.values():
+        for char_data in self.player_char_data.values():
+            char = char_data.char
             if not char.training in ravenpy.combat_skills:
                 continue
             if char.auto_join_raid_count == 0:
@@ -349,7 +362,8 @@ class ChatClient(twitchio.Client):
                     
     async def handle_dungeon_scroll(self, channel_id: str, channel_name: str):
         user_in_channel = ""
-        for char in self.player_char_data.values():
+        for char_data in self.player_char_data.values():
+            char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel != channel_id:
                 continue
@@ -364,7 +378,8 @@ class ChatClient(twitchio.Client):
             
     async def handle_raid_scroll(self, channel_id: str, channel_name: str):
         user_in_channel = ""
-        for char in self.player_char_data.values():
+        for char_data in self.player_char_data.values():
+            char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel != channel_id:
                 continue
@@ -379,7 +394,8 @@ class ChatClient(twitchio.Client):
 
     async def handle_ferry_scroll(self, channel_id: str, channel_name: str):
         user_in_channel = ""
-        for char in self.player_char_data.values():
+        for char_data in self.player_char_data.values():
+            char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel != channel_id:
                 continue
@@ -395,7 +411,8 @@ class ChatClient(twitchio.Client):
     async def handle_exp_scroll(self, channel_id: str, channel_name: str, scroll_count: int, caller_username: str):
         current_count = 0
         user_to_speak = ""
-        for char in self.player_char_data.values():
+        for char_data in self.player_char_data.values():
+            char = char_data.char
             if (not user_to_speak) and (char.user_name != caller_username):
                 user_to_speak = char.user_name
                 break
@@ -405,7 +422,8 @@ class ChatClient(twitchio.Client):
         if scroll_count <= 0:
             await self.send_chat_message(user_to_speak, channel_name, "I am keeping my scrolls I guess")
             return
-        for char in self.player_char_data.values():
+        for char_data in self.player_char_data.values():
+            char = char_data.char
             if char.user_name.lower() == caller_username.lower():
                 continue
             if current_count >= scroll_count:
@@ -428,7 +446,8 @@ class ChatClient(twitchio.Client):
     async def handle_count_scrolls(self, channel_id: str, channel_name: str, caller_username: str, total_scrolls = False):
         scroll_counts = {}
         user_to_speak = ""
-        for char in self.player_char_data.values():
+        for char_data in self.player_char_data.values():
+            char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             dscroll = char.get_item(ravenpy.Items.DungeonScroll)
             rscroll = char.get_item(ravenpy.Items.RaidScroll)
@@ -510,9 +529,10 @@ class ChatClient(twitchio.Client):
         char_item_stuff = []
         total_count = 0
         all_characters = list(self.player_char_data.values())
-        all_characters.sort(key=lambda x: self.account_channels[x.twitch_id][x.index-1])
-        all_characters.sort(key=lambda x: self.account_channels[x.twitch_id][x.index-1] == channel_id, reverse=True)
-        for char in all_characters:
+        all_characters.sort(key=lambda x: self.account_channels[x.char.twitch_id][x.char.index-1])
+        all_characters.sort(key=lambda x: self.account_channels[x.char.twitch_id][x.char.index-1] == channel_id, reverse=True)
+        for char_data in all_characters:
+            char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             char_item = char.get_item(item)
             if not char_item:
@@ -599,7 +619,8 @@ class ChatClient(twitchio.Client):
             else:
                 sender_user = caller_username
         if not sender_user:
-            for char in self.player_char_data.values():
+            for char_data in self.player_char_data.values():
+                char = char_data.char
                 channel = self.account_channels[char.twitch_id][char.index-1]
                 if channel != channel_id:
                     continue
@@ -617,7 +638,7 @@ class ChatClient(twitchio.Client):
         gift_commands = []
         
         for key in self.player_char_data.keys():
-            char = self.player_char_data[key]
+            char = self.player_char_data[key].char
             recs = self.player_recommendations[key]
             char_channel_id = self.account_channels[char.twitch_id][char.index-1]
             if char_channel_id != channel_id:
@@ -816,7 +837,7 @@ class ChatClient(twitchio.Client):
                         for i in range(1, 4):
                             key = f"{username}_{i}"
                             if key in self.player_char_data:
-                                char_name = self.player_char_data[key].name
+                                char_name = self.player_char_data[key].char.name
                                 if char_name and char_name.split()[0].lower() == args[0]:
                                     index = i
                                     break
@@ -934,8 +955,11 @@ class ChatClient(twitchio.Client):
                 if char is None:
                     continue
                 char_key = f"{char.user_name}_{char.index}"
-                self.player_char_data[char_key] = char
-                self.player_recommendations[char_key] = []
+                if not char_key in self.player_char_data:
+                    self.player_char_data[char_key] = CharData(char)
+                char_data_obj = self.player_char_data[char_key]
+                char_data_obj.char = char
+                char_data_obj.last_update_time = now
                 progress = 0
                 
                 if char.training:
@@ -1003,7 +1027,11 @@ class ChatClient(twitchio.Client):
                             break
                     color = COLORS[channel_idx % len(COLORS)]
                     channel = await self.get_username(channel_id)
-                    ...
+                    char_data_obj.channel_name = channel
+                    char_data_obj.channel_id = channel_id
+                else:
+                    char_data_obj.channel_name = None
+                    char_data_obj.channel_id = None
                 # if channel is not None:
                 #     self.fetch_channels()
                 name = char.name
@@ -1015,12 +1043,13 @@ class ChatClient(twitchio.Client):
                 char_is_offline = False
                 desync_s = None
                 if char.estimated_level_time and char.exp_per_hour > 0 and char.training_stats[0].level < 999:
-                    training_time_server = char.estimated_level_time - now
+                    training_time_server = char.estimated_level_time - char.time_recieved
                     closest_stat = char.training_stats[0]
                     exp_to_next_level = closest_stat.total_exp_for_level-closest_stat.level_exp
                     training_time_exp = timedelta(seconds=(exp_to_next_level) / (char.exp_per_hour/60/60))
                     train_time_diff = (training_time_exp - training_time_server)
                     desync_s = train_time_diff.total_seconds()
+                    char_data_obj.desync_s = desync_s
                     desync_samples.append(desync_s)
                     if not channel_id in desync_samples_per_channel:
                         desync_samples_per_channel[channel_id] = []
@@ -1198,6 +1227,7 @@ class ChatClient(twitchio.Client):
                             rec_items.append(rec_bow)
 
                 self.player_recommendations[char_key] = rec_items
+                char_data_obj.recommendations = rec_items
 
                 stats_str_build = []
                 combat_level = "Lv. " + str(char.combat_level)
@@ -1353,11 +1383,31 @@ class CommandServer:
 
     async def handle_get_desync(self, request):
         try:
+            # calculate desync per channel
+            channel_samples: Dict[str, List[float]] = {}
+            desync_last_update_time: float = 0
+            for char_data in self.chat_client.player_char_data.values():
+                if char_data.desync_s is not None:
+                    if not char_data.channel_id in channel_samples:
+                        channel_samples[char_data.channel_id] = []
+                    channel_samples[char_data.channel_id].append(char_data.desync_s)
+                    if char_data.last_update_time > desync_last_update_time:
+                        desync_last_update_time = char_data.last_update_time
+
+            desync_per_channel_id: Dict[str, float] = {}
+            for channel_id, samples in channel_samples.items():
+                samples.sort()
+                sample_trim = int(round(len(samples) * .2))
+                if sample_trim > 0:
+                    samples = samples[sample_trim:-sample_trim]
+                if len(samples) == 0:
+                    samples.append(0)
+                desync_per_channel_id[channel_id] = sum(samples) / len(samples)
             return web.json_response({
                 "status": "success",
                 "data": {
-                    "towns": self.chat_client.desync_per_channel_id,
-                    "last_updated": self.chat_client.desync_last_update_time
+                    "towns": desync_per_channel_id,
+                    "last_updated": desync_last_update_time
                 }
             })
         except Exception as e:
