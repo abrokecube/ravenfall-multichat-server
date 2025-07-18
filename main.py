@@ -16,7 +16,7 @@ import re
 import os
 from dotenv import load_dotenv
 from utils import utils, langstuff
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import time
 import math
 import aiohttp
@@ -130,7 +130,7 @@ class CharData:
     last_update_time: datetime = datetime.now(timezone.utc)
     channel_name: str | None = None
     channel_id: str | None = None
-    recommendations: List[str] = []
+    recommendations: List[str] = field(default_factory=list)
 
 class ChatClient(twitchio.Client):
     def __init__(self, rf_api: ravenpy.RavenNest=None):
