@@ -1385,14 +1385,19 @@ class CommandServer:
         try:
             # calculate desync per channel
             channel_samples: Dict[str, List[float]] = {}
-            desync_last_update_time: float = 0
+            desync_last_update_time: datetime | None = None
+            for char_data in self.chat_client.player_char_data.values():
+                if char_data.desync_s is not None:
+                    if desync_last_update_time is None or char_data.last_update_time > desync_last_update_time:
+                        desync_last_update_time = char_data.last_update_time
+
             for char_data in self.chat_client.player_char_data.values():
                 if char_data.desync_s is not None:
                     if not char_data.channel_id in channel_samples:
                         channel_samples[char_data.channel_id] = []
+                    if desync_last_update_time is not None and desync_last_update_time - char_data.last_update_time > timedelta(minutes=2):
+                        continue
                     channel_samples[char_data.channel_id].append(char_data.desync_s)
-                    if char_data.last_update_time.timestamp() > desync_last_update_time:
-                        desync_last_update_time = char_data.last_update_time.timestamp()
 
             desync_per_channel_id: Dict[str, float] = {}
             for channel_id, samples in channel_samples.items():
@@ -1407,7 +1412,7 @@ class CommandServer:
                 "status": "success",
                 "data": {
                     "towns": desync_per_channel_id,
-                    "last_updated": desync_last_update_time
+                    "last_updated": desync_last_update_time.timestamp() if desync_last_update_time is not None else 0
                 }
             })
         except Exception as e:
