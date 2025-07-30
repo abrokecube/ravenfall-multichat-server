@@ -301,7 +301,7 @@ class ChatClient(twitchio.Client):
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
-                if char.twitch_id != os.getenv("OWNER_ID") \
+                if char.name not in RANDOM_CHAR_BLACKLIST \
                 and char.training not in (None, Skills.Sailing):
                     if not (char.in_dungeon or char.in_raid):
                         await self.send_chat_message(char.user_name, channel_name, '!leave')
@@ -1347,7 +1347,8 @@ class CommandServer:
         self.app = web.Application()
         self.app.add_routes([
             web.post('/command', self.handle_command),
-            web.get('/get_desync', self.handle_get_desync)
+            web.get('/get_desync', self.handle_get_desync),
+            web.get('/get_total_item_count', self.handle_get_total_item_count),
         ])
 
     async def handle_command(self, request):
@@ -1421,6 +1422,23 @@ class CommandServer:
                 {'status': 'error', 'message': str(e)},
                 status=500
             )
+            
+    async def handle_get_total_item_count(self, request):
+        channel_total_item_count: Dict[str, int] = {}
+        for char_data in self.chat_client.player_char_data.values():
+            if char_data.channel_id is None:
+                continue
+            if char_data.channel_id not in channel_total_item_count:
+                channel_total_item_count[char_data.channel_id] = 0
+            for item in char_data.char.items:
+                channel_total_item_count[char_data.channel_id] += item.amount
+        return web.json_response({
+            "status": "success",
+            "data": {
+                "towns": channel_total_item_count,
+            }
+        })
+
 
     async def start(self):
         runner = web.AppRunner(self.app)
