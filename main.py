@@ -1424,21 +1424,27 @@ class CommandServer:
             )
             
     async def handle_get_total_item_count(self, request):
-        channel_total_item_count: Dict[str, int] = {}
-        for char_data in self.chat_client.player_char_data.values():
-            if char_data.channel_id is None:
-                continue
-            if char_data.channel_id not in channel_total_item_count:
-                channel_total_item_count[char_data.channel_id] = 0
-            for item in char_data.char.items:
-                channel_total_item_count[char_data.channel_id] += item.amount
-        return web.json_response({
-            "status": "success",
-            "data": {
-                "towns": channel_total_item_count,
-            }
-        })
-
+        try:
+            channel_total_item_count: Dict[str, int] = {}
+            for char_data in self.chat_client.player_char_data.values():
+                if char_data.channel_id is None:
+                    continue
+                if char_data.channel_id not in channel_total_item_count:
+                    channel_total_item_count[char_data.channel_id] = 0
+                for item in char_data.char.items:
+                    channel_total_item_count[char_data.channel_id] += item.amount
+            return web.json_response({
+                "status": "success",
+                "data": {
+                    "towns": channel_total_item_count,
+                }
+            })
+        except Exception as e:
+            LOGGER.error(f"Error processing command: {str(e)}")
+            return web.json_response(
+                {'status': 'error', 'message': str(e)},
+                status=500
+            )
 
     async def start(self):
         runner = web.AppRunner(self.app)
