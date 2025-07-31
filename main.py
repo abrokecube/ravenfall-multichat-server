@@ -1460,6 +1460,7 @@ class CommandServer:
                     "name": char_data.char.name,
                     "index": char_data.char.index,
                     "user_name": char_data.char.user_name,
+                    "id": char_data.char.char_id,
                     "channel_id": char_data.channel_id,
                     "channel_name": char_data.channel_name,
                     "desync_s": char_data.desync_s,
