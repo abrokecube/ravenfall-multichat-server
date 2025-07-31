@@ -1349,6 +1349,7 @@ class CommandServer:
             web.post('/command', self.handle_command),
             web.get('/get_desync', self.handle_get_desync),
             web.get('/get_total_item_count', self.handle_get_total_item_count),
+            web.get('/get_char_data', self.handle_get_chars_data),
         ])
 
     async def handle_command(self, request):
@@ -1446,6 +1447,37 @@ class CommandServer:
                 status=500
             )
 
+    async def handle_get_chars_data(self, request):
+        try:
+            char_info: List[Dict] = []
+            for char_data in self.chat_client.player_char_data.values():
+                if char_data.char is None:
+                    continue
+                total_item_count = 0
+                for item in char_data.char.items:
+                    total_item_count += item.amount
+                char_info.append({
+                    "name": char_data.char.name,
+                    "index": char_data.char.index,
+                    "user_name": char_data.char.user_name,
+                    "channel_id": char_data.channel_id,
+                    "channel_name": char_data.channel_name,
+                    "desync_s": char_data.desync_s,
+                    "last_update_time": char_data.last_update_time.timestamp(),
+                    "recommendations": char_data.recommendations,
+                    "total_item_count": total_item_count,
+                })
+            return web.json_response({
+                "status": "success",
+                "data": char_info
+            })
+        except Exception as e:
+            LOGGER.error(f"Error processing command: {str(e)}")
+            return web.json_response(
+                {'status': 'error', 'message': str(e)},
+                status=500
+            )
+    
     async def start(self):
         runner = web.AppRunner(self.app)
         await runner.setup()
