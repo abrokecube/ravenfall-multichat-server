@@ -301,7 +301,7 @@ class ChatClient(twitchio.Client):
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id:
-                if char.name not in RANDOM_CHAR_BLACKLIST \
+                if char.user_name.lower() not in RANDOM_CHAR_BLACKLIST \
                 and char.training not in (None, Skills.Sailing):
                     if not (char.in_dungeon or char.in_raid):
                         await self.send_chat_message(char.user_name, channel_name, '!leave')
