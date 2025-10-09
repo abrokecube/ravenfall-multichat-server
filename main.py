@@ -899,7 +899,7 @@ class ChatClient(twitchio.Client):
         """Returns True if the last API request was successful, False otherwise."""
         return self._is_online
 
-    @routines.routine(delta=timedelta(seconds=10))
+    @routines.routine(delta=timedelta(seconds=10), max_attempts=9999999)
     async def fetch_rf_api(self):
         # try:
         #     await ws.ping()
