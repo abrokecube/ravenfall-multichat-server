@@ -282,6 +282,8 @@ class ChatClient(twitchio.Client):
         char_data_list = list(self.player_char_data.values())
         char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
         for char_data in char_data_list_shuffled:
+            if char_data.char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
+                continue
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel == channel_id \
