@@ -700,7 +700,7 @@ class ChatClient(twitchio.Client):
         )
 
     async def process_commands(self, payload: twitchio.ChatMessage):
-        if payload.text[0] in ("!", ">"):
+        if payload.text[0] == "!":
             await self.parse_chat_command(payload.text, payload.chatter.id, payload.broadcaster.id)
             return
         await self.process_command_thing(
@@ -824,7 +824,7 @@ class ChatClient(twitchio.Client):
 
     async def parse_chat_command(self, text: str, user_id: str, channel_id: str):
         username = await self.get_username(user_id)
-        args = text.lstrip("!>").split()
+        args = text.lstrip("!").split()
         command = args[0]
         args = args[1:]
         match command:
@@ -854,8 +854,6 @@ class ChatClient(twitchio.Client):
                     self.save_channels()
     
     async def send_chat_message(self, user: str, channel: str, text: str):
-        if channel.lower() == "abrokecube":
-            text = text[:2].replace("!", ">") + text[2:]
         if user.lower() == "potatbotat":
             text = "-pb " + text
             user = "abrokecube"
@@ -878,7 +876,7 @@ class ChatClient(twitchio.Client):
         except twitchio.MessageRejectedError as e:
             await self.send_system_message(e.message)
         else:
-            if text[0] in ("!", ">"):
+            if text[0] == "!":
                 await self.parse_chat_command(text, user_id, channel_id)
 
     @routines.routine(delta=timedelta(seconds=5))
