@@ -1498,7 +1498,7 @@ class CommandServer:
             out_data = {}
             for char_data in self.chat_client.player_char_data.values():
                 if char_data.channel_id == channel_id:
-                    out_data[char_data.char.user_id] = char_data.char.coins
+                    out_data[char_data.char.twitch_id] = char_data.char.coins
             return web.json_response({
                 "status": "success",
                 "data": out_data
@@ -1526,8 +1526,10 @@ class CommandServer:
                         char_items.append({
                             "id": item.item.id,
                             "amount": item.amount,
+                            "equipped": item.equipped,
+                            "soulbound": item.soulbound,
                         })
-                    out_data[char_data.char.user_id] = char_items
+                    out_data[char_data.char.twitch_id] = char_items
             return web.json_response({
                 "status": "success",
                 "data": out_data
