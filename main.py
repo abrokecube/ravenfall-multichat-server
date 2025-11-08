@@ -1356,8 +1356,8 @@ class CommandServer:
             web.get('/get_desync', self.handle_get_desync),
             web.get('/get_total_item_count', self.handle_get_total_item_count),
             web.get('/get_char_data', self.handle_get_chars_data),
-            web.get('/get_char_coins/<channel_id>', self.handle_get_chars_coins),
-            web.get('/get_char_items/<channel_id>', self.handle_get_chars_items),
+            web.get('/get_char_coins/{channel_id}', self.handle_get_chars_coins),
+            web.get('/get_char_items/{channel_id}', self.handle_get_chars_items),
         ])
 
     async def handle_command(self, request):
