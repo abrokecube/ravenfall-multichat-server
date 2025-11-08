@@ -1495,10 +1495,16 @@ class CommandServer:
                     {'status': 'error', 'message': 'Missing channel_id'},
                     status=400
                 )
-            out_data = {}
+            out_data = []
             for char_data in self.chat_client.player_char_data.values():
                 if char_data.channel_id == channel_id:
-                    out_data[char_data.char.twitch_id] = char_data.char.coins
+                    out_data.append(
+                        {
+                            "twitch_id": char_data.char.twitch_id,
+                            "user_name": char_data.char.user_name,
+                            "coins": char_data.char.coins
+                        }
+                    )
             return web.json_response({
                 "status": "success",
                 "data": out_data
@@ -1518,7 +1524,7 @@ class CommandServer:
                     {'status': 'error', 'message': 'Missing channel_id'},
                     status=400
                 )
-            out_data = {}
+            out_data = []
             for char_data in self.chat_client.player_char_data.values():
                 if char_data.channel_id == channel_id:
                     char_items = []
@@ -1529,7 +1535,13 @@ class CommandServer:
                             "equipped": item.equipped,
                             "soulbound": item.soulbound,
                         })
-                    out_data[char_data.char.twitch_id] = char_items
+                    out_data.append(
+                        {
+                            "twitch_id": char_data.char.twitch_id,
+                            "user_name": char_data.char.user_name,
+                            "items": char_items
+                        }
+                    )
             return web.json_response({
                 "status": "success",
                 "data": out_data
