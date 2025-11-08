@@ -852,6 +852,12 @@ class ChatClient(twitchio.Client):
                 if index <= len(self.account_channels[user_id]):
                     self.account_channels[user_id][index-1] = channel_id
                     self.save_channels()
+            case "leave":
+                if user_id in self.account_channels:
+                    index = self.account_channels[user_id].index(channel_id)
+                    if index != -1:
+                        self.account_channels[user_id][index] = None
+                        self.save_channels()
     
     async def send_chat_message(self, user: str, channel: str, text: str):
         if user.lower() == "potatbotat":
@@ -1350,6 +1356,8 @@ class CommandServer:
             web.get('/get_desync', self.handle_get_desync),
             web.get('/get_total_item_count', self.handle_get_total_item_count),
             web.get('/get_char_data', self.handle_get_chars_data),
+            web.get('/get_char_coins/<channel_id>', self.handle_get_chars_coins),
+            web.get('/get_char_items/<channel_id>', self.handle_get_chars_items),
         ])
 
     async def handle_command(self, request):
@@ -1479,6 +1487,58 @@ class CommandServer:
                 status=500
             )
     
+    async def handle_get_chars_coins(self, request: web.Request):
+        try:
+            channel_id = request.match_info.get('channel_id', '')
+            if not channel_id:
+                return web.json_response(
+                    {'status': 'error', 'message': 'Missing channel_id'},
+                    status=400
+                )
+            out_data = {}
+            for char_data in self.chat_client.player_char_data.values():
+                if char_data.channel_id == channel_id:
+                    out_data[char_data.char.user_id] = char_data.char.coins
+            return web.json_response({
+                "status": "success",
+                "data": out_data
+            })
+        except Exception as e:
+            LOGGER.error(f"Error processing command: {str(e)}")
+            return web.json_response(
+                {'status': 'error', 'message': str(e)},
+                status=500
+            )
+
+    async def handle_get_chars_items(self, request: web.Request):
+        try:
+            channel_id = request.match_info.get('channel_id', '')
+            if not channel_id:
+                return web.json_response(
+                    {'status': 'error', 'message': 'Missing channel_id'},
+                    status=400
+                )
+            out_data = {}
+            for char_data in self.chat_client.player_char_data.values():
+                if char_data.channel_id == channel_id:
+                    char_items = []
+                    for item in char_data.char.items:
+                        char_items.append({
+                            "id": item.item.id,
+                            "amount": item.amount,
+                        })
+                    out_data[char_data.char.user_id] = char_items
+            return web.json_response({
+                "status": "success",
+                "data": out_data
+            })
+        except Exception as e:
+            LOGGER.error(f"Error processing command: {str(e)}")
+            return web.json_response(
+                {'status': 'error', 'message': str(e)},
+                status=500
+            )
+
     async def start(self):
         runner = web.AppRunner(self.app)
         await runner.setup()
