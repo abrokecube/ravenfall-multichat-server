@@ -1026,6 +1026,7 @@ class ChatClient(twitchio.Client):
                 text2 = utils.capitalize_first_letter(utils.strjoin(' ', where, where_island, destination, captain))
                 channel_id = self.account_channels[char.twitch_id][char.index-1]
                 channel = None
+                color = "000000"
                 if channel_id is not None:
                     channel_idx = 0
                     for idx, ch_id in enumerate(self.connected_channels.keys()):
