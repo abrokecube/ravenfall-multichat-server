@@ -854,7 +854,10 @@ class ChatClient(twitchio.Client):
                     self.save_channels()
             case "leave":
                 if user_id in self.account_channels:
-                    index = self.account_channels[user_id].index(channel_id)
+                    try:
+                        index = self.account_channels[user_id].index(channel_id)
+                    except ValueError:
+                        index = -1
                     if index != -1:
                         self.account_channels[user_id][index] = None
                         self.save_channels()
