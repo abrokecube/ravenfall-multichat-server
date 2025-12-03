@@ -239,7 +239,7 @@ class ChatClient(twitchio.Client):
         self.user_info[resp.user_id] = {
             "name": user_info[0].name,
             "can_add_moderators": False,
-            "can_execute_commands": False
+            "can_execute_commands": True
         }
         with open("users.json", 'w') as f:
             json.dump(self.user_info, f)

@@ -167,3 +167,4 @@ cython_debug/
 user_token.json
 channels.json
 Pipfile.lock
+users.json
