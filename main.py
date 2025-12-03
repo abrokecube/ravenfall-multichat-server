@@ -34,6 +34,7 @@ BOT_ID = os.getenv("BOT_ID")
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 RANDOM_CHAR_BLACKLIST = ['potatbotat', 'abrokecube']
+DISABLE_INTEGRATIONS = os.getenv("DISABLE_INTEGRATIONS", "").lower() in ("1", "true", "yes")
 
 # From https://lospec.com/palette-list/bubblegum-16
 COLORS = [
@@ -192,19 +193,20 @@ class ChatClient(twitchio.Client):
             self.username_to_id[channel.name.lower()] = channel.id
             self.id_to_username[str(channel.id)] = channel.name
         
-        for channel_id in self.connected_channels:
-            payload = eventsub.ChatMessageSubscription(
-                broadcaster_user_id=str(channel_id), user_id=str(self.bot_id)
-            )
-            await self.subscribe_websocket(payload=payload, token_for=self.bot_id)
-            payload = eventsub.ChannelUpdateSubscription(
-                broadcaster_user_id=str(channel_id)
-            )
-            await self.subscribe_websocket(payload=payload, token_for=self.bot_id)
-        self.refresh_users()
-        self.fetch_rf_api.start()
-        self.send_channels.start()
-        self.resync_routine.start()
+        if not DISABLE_INTEGRATIONS:
+            for channel_id in self.connected_channels:
+                payload = eventsub.ChatMessageSubscription(
+                    broadcaster_user_id=str(channel_id), user_id=str(self.bot_id)
+                )
+                await self.subscribe_websocket(payload=payload, token_for=self.bot_id)
+                payload = eventsub.ChannelUpdateSubscription(
+                    broadcaster_user_id=str(channel_id)
+                )
+                await self.subscribe_websocket(payload=payload, token_for=self.bot_id)
+            self.refresh_users()
+            self.fetch_rf_api.start()
+            self.send_channels.start()
+            self.resync_routine.start()
         LOGGER.info("Finished setup hook!")
     
     def save_channels(self):
@@ -1572,15 +1574,17 @@ command_server: CommandServer
 async def main() -> None:
     # Setup logging, this is optional, however a nice to have...
     twitchio.utils.setup_logging(level=logging.INFO)
-    rfapi = ravenpy.RavenNest(os.getenv("API_USER"), os.getenv("API_PASS"))
-    await rfapi.login()
+    if not DISABLE_INTEGRATIONS:
+        rfapi = ravenpy.RavenNest(os.getenv("API_USER"), os.getenv("API_PASS"))
+        await rfapi.login()
 
     async def runner() -> None:
         global twitch_client
         async with ChatClient(rfapi) as bot:
             twitch_client = bot
-            command_server = CommandServer(bot, os.getenv("COMMAND_SERVER_HOST"), int(os.getenv("COMMAND_SERVER_PORT")))
-            asyncio.create_task(command_server.start())
+            if not DISABLE_INTEGRATIONS:
+                command_server = CommandServer(bot, os.getenv("COMMAND_SERVER_HOST"), int(os.getenv("COMMAND_SERVER_PORT")))
+                asyncio.create_task(command_server.start())
             await bot.start()
 
 
