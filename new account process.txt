@@ -1,0 +1,20 @@
+https://www.twitch.tv/settings/profile
+add profile picture
+set bio to:
+belongs to @abrokecube
+
+https://www.twitch.tv/settings/security
+allow additional account creation
+
+https://dashboard.twitch.tv
+settings > channel
+add social link:
+Main
+https://www.twitch.tv/abrokecube
+change accent color
+
+https://www.twitch.tv/borkedcube
+set chat color
+
+http://localhost:4343/oauth?scopes=user:read:chat%20user:write:chat%20user:bot
+authorize
