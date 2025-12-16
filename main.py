@@ -24,7 +24,11 @@ import random
 from aiohttp import web
 from utils.commandargs import CommandArgs
 
+
 load_dotenv()
+
+with open('pid', 'w') as f:
+    f.write(str(os.getpid()))
 
 # http://localhost:4343/oauth?scopes=user:read:chat%20user:write:chat%20user:bot
 # http://localhost:4343/oauth?scopes=user:read:chat%20user:write:chat%20user:bot%20channel:manage:moderators
