@@ -757,6 +757,8 @@ class ChatClient(twitchio.Client):
                     await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
                 case "items":
                     await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
+                case "debug":
+                    print(self.account_channels)
 
         if self.user_info.get(channel_id, {}).get("can_add_moderators", False):
             match command:
