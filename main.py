@@ -440,6 +440,8 @@ class ChatClient(twitchio.Client):
                 if current_count >= scroll_count:
                     break
                 channel = self.account_channels[char.twitch_id][char.index-1]
+                if not channel:
+                    continue
                 char_channel_name = await self.get_username(channel)
                 expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
                 if expscroll:
@@ -464,6 +466,8 @@ class ChatClient(twitchio.Client):
         for char_data in self.player_char_data.values():
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
+            if not channel:
+                continue
             dscroll = char.get_item(ravenpy.Items.DungeonScroll)
             rscroll = char.get_item(ravenpy.Items.RaidScroll)
             expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
@@ -544,11 +548,13 @@ class ChatClient(twitchio.Client):
         char_item_stuff = []
         total_count = 0
         all_characters = list(self.player_char_data.values())
-        all_characters.sort(key=lambda x: self.account_channels[x.char.twitch_id][x.char.index-1])
+        all_characters.sort(key=lambda x: self.account_channels[x.char.twitch_id][x.char.index-1] or "")
         all_characters.sort(key=lambda x: self.account_channels[x.char.twitch_id][x.char.index-1] == channel_id, reverse=True)
         for char_data in all_characters:
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
+            if not channel:
+                continue
             char_item = char.get_item(item)
             if not char_item:
                 continue
@@ -757,8 +763,6 @@ class ChatClient(twitchio.Client):
                     await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
                 case "items":
                     await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
-                case "debug":
-                    print(self.account_channels)
 
         if self.user_info.get(channel_id, {}).get("can_add_moderators", False):
             match command:
