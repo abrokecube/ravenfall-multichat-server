@@ -369,8 +369,8 @@ class ChatClient(twitchio.Client):
                     await asyncio.sleep(0.4)
                     
     async def handle_dungeon_scroll(self, channel_id: str, channel_name: str):
-        user_in_channel = ""
         for char_data in self.player_char_data.values():
+            user_in_channel = ""
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel != channel_id:
@@ -382,11 +382,11 @@ class ChatClient(twitchio.Client):
                 await self.send_chat_message(char.user_name, channel_name, '!dungeon start')
                 return
         else:
-            await self.send_chat_message(user_in_channel, channel_name, 'Out of dungeon scrolls :(')
+            await self.send_chat_message_as_rand_user(channel_name, 'Out of dungeon scrolls :(')
             
     async def handle_raid_scroll(self, channel_id: str, channel_name: str):
-        user_in_channel = ""
         for char_data in self.player_char_data.values():
+            user_in_channel = ""
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel != channel_id:
@@ -398,11 +398,11 @@ class ChatClient(twitchio.Client):
                 await self.send_chat_message(char.user_name, channel_name, '!raid start')
                 break
         else:
-            await self.send_chat_message(user_in_channel, channel_name, 'Out of raid scrolls :(')
+            await self.send_chat_message_as_rand_user(channel_name, 'Out of raid scrolls :(')
 
     async def handle_ferry_scroll(self, channel_id: str, channel_name: str):
-        user_in_channel = ""
         for char_data in self.player_char_data.values():
+            user_in_channel = ""
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
             if channel != channel_id:
@@ -414,16 +414,10 @@ class ChatClient(twitchio.Client):
                 await self.send_chat_message(char.user_name, channel_name, '!ferry boost')
                 break
         else:
-            await self.send_chat_message(user_in_channel, channel_name, 'Out of ferry scrolls :(')
+            await self.send_chat_message_as_rand_user(channel_name, 'Out of ferry scrolls :(')
             
     async def handle_exp_scroll(self, channel_id: str, channel_name: str, scroll_count: int, caller_username: str):
         current_count = 0
-        user_to_speak = ""
-        for char_data in self.player_char_data.values():
-            char = char_data.char
-            if (not user_to_speak) and (char.user_name != caller_username):
-                user_to_speak = char.user_name
-                break
         if self.current_mult >= 100:
             await self.send_chat_message_as_rand_user(channel_name, "Multiplier is already maxed")
             return
@@ -431,7 +425,7 @@ class ChatClient(twitchio.Client):
             await self.send_chat_message_as_rand_user(channel_name, "I am keeping my scrolls I guess")
             return
         
-        await self.send_chat_message_as_rand_user(channel_name, f"Using {scroll_count} exp scrolls...")
+        await self.send_chat_message_as_rand_user(channel_name, f"Using {scroll_count} exp scrolls, please be patient...")
         try:
             for char_data in self.player_char_data.values():
                 char = char_data.char
@@ -454,15 +448,14 @@ class ChatClient(twitchio.Client):
             raise e
             
         if current_count == 0:
-            await self.send_chat_message(user_to_speak, channel_name, "No scrolls :(")
+            await self.send_chat_message_as_rand_user(channel_name, "No scrolls :(")
         elif current_count < scroll_count:
-            await self.send_chat_message(user_to_speak, channel_name, "Ran out of scrolls")
+            await self.send_chat_message_as_rand_user(channel_name, "Ran out of scrolls")
         else:
-            await self.send_chat_message(user_to_speak, channel_name, "Okay")
+            await self.send_chat_message_as_rand_user(channel_name, "Finished using scrolls Okay")
             
     async def handle_count_scrolls(self, channel_id: str, channel_name: str, caller_username: str, total_scrolls = False):
         scroll_counts = {}
-        user_to_speak = ""
         for char_data in self.player_char_data.values():
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
@@ -472,8 +465,6 @@ class ChatClient(twitchio.Client):
             rscroll = char.get_item(ravenpy.Items.RaidScroll)
             expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
             fscroll = char.get_item("Ferry Scroll")
-            if (not user_to_speak) and (char.user_name != caller_username):
-                user_to_speak = char.user_name
             for item in (dscroll, rscroll, expscroll, fscroll):
                 if not item: 
                     continue
@@ -487,8 +478,8 @@ class ChatClient(twitchio.Client):
         # scroll_counts_text = ', '.join(f"{name}: {channel_c}x ({total_c}x)" for name, (total_c, channel_c) in scroll_counts_list)
         if total_scrolls:
             scroll_counts_text = ', '.join(f"{total_c} {utils.pl(total_c, name, False)}" for name, (total_c, channel_c) in scroll_counts_list)
-            await self.send_chat_message(
-                user_to_speak, channel_name, f"Total available scrolls across channels - {scroll_counts_text}"
+            await self.send_chat_message_as_rand_user(
+                channel_name, f"Total available scrolls across channels - {scroll_counts_text}"
             )
         else:
             scroll_counts_text_strs = []
@@ -498,8 +489,8 @@ class ChatClient(twitchio.Client):
                 else:
                     scroll_counts_text_strs.append(f"{channel_c} {utils.pl(channel_c, name, False)}")
             scroll_counts_text = ', '.join(scroll_counts_text_strs)
-            await self.send_chat_message(
-                user_to_speak, channel_name, f"Available scrolls - {scroll_counts_text}"
+            await self.send_chat_message_as_rand_user(
+                channel_name, f"Available scrolls - {scroll_counts_text}"
             )
     
     async def handle_count_items(self, channel_id: str, channel_name: str, caller_username: str, args_: str):
@@ -532,16 +523,15 @@ class ChatClient(twitchio.Client):
                 except ValueError:
                     pass
                 
-        rand_char = self.get_random_char_in_channel(channel_name)
         if len(item_name) < 2:
-            await self.send_chat_message(
-                rand_char.user_name, channel_name, "Item name must be at least 2 characters long"
+            await self.send_chat_message_as_rand_user(
+                channel_name, "Item name must be at least 2 characters long"
             )
             return
         item_result = ravenpy.search_item(item_name, limit=1)
         if not item_result:
-            await self.send_chat_message(
-                rand_char.user_name, channel_name, f"Item '{item_name}' not found"
+            await self.send_chat_message_as_rand_user(
+                channel_name, f"Item '{item_name}' not found"
             )
             return
         item: ravenpy.Item = item_result[0][0]
@@ -571,8 +561,8 @@ class ChatClient(twitchio.Client):
             if trim_amount > 0:
                 break
         if not char_item_stuff:
-            await self.send_chat_message(
-                rand_char.user_name, channel_name, f"No {item.name} was found."
+            await self.send_chat_message_as_rand_user(
+                channel_name, f"No {item.name} was found."
             )
             return
         char_item_stuff.sort(key=lambda x: x['amount'], reverse=True)
@@ -602,22 +592,19 @@ class ChatClient(twitchio.Client):
                 extended_output.append(f"    ?say -as:{char_item['char_name']} !gift {gift_to} {item.name} {char_item['amount']}")
         if total_items:
             pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
-            await self.send_chat_message(
-                rand_char.user_name,
+            await self.send_chat_message_as_rand_user(
                 channel_name,
                 f"{total_count}x {item.name} total. {pastas_url}"
             )
         else:
             if not channel_id in total_per_channel_id:
-                await self.send_chat_message(
-                    rand_char.user_name,
+                await self.send_chat_message_as_rand_user(
                     channel_name,
                     f"No {item.name} here :/"
                 )
                 return
             pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
-            await self.send_chat_message(
-                rand_char.user_name,
+            await self.send_chat_message_as_rand_user(
                 channel_name, 
                 f"{total_per_channel_id[channel_id]}x {item.name} here. {pastas_url}"
             )
