@@ -425,25 +425,32 @@ class ChatClient(twitchio.Client):
                 user_to_speak = char.user_name
                 break
         if self.current_mult >= 100:
-            await self.send_chat_message(user_to_speak, channel_name, "Multiplier is already maxed")
+            await self.send_chat_message_as_rand_user(channel_name, "Multiplier is already maxed")
             return
         if scroll_count <= 0:
-            await self.send_chat_message(user_to_speak, channel_name, "I am keeping my scrolls I guess")
+            await self.send_chat_message_as_rand_user(channel_name, "I am keeping my scrolls I guess")
             return
-        for char_data in self.player_char_data.values():
-            char = char_data.char
-            if char.user_name.lower() == caller_username.lower():
-                continue
-            if current_count >= scroll_count:
-                break
-            channel = self.account_channels[char.twitch_id][char.index-1]
-            char_channel_name = await self.get_username(channel)
-            expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
-            if expscroll:
-                count = min(scroll_count-current_count, expscroll.amount)
-                await self.send_chat_message(char.user_name, char_channel_name, f'!exp {count}')
-                current_count += count
-                await asyncio.sleep(.75)
+        
+        await self.send_chat_message_as_rand_user(channel_name, f"Using {scroll_count} exp scrolls...")
+        try:
+            for char_data in self.player_char_data.values():
+                char = char_data.char
+                if char.user_name.lower() == caller_username.lower():
+                    continue
+                if current_count >= scroll_count:
+                    break
+                channel = self.account_channels[char.twitch_id][char.index-1]
+                char_channel_name = await self.get_username(channel)
+                expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
+                if expscroll:
+                    count = min(scroll_count-current_count, expscroll.amount)
+                    await self.send_chat_message(char.user_name, char_channel_name, f'!exp {count}')
+                    current_count += count
+                    await asyncio.sleep(.75)
+        except Exception as e:
+            await self.send_chat_message_as_rand_user(channel_name, f"There was an error using exp scrolls.")
+            raise e
+            
         if current_count == 0:
             await self.send_chat_message(user_to_speak, channel_name, "No scrolls :(")
         elif current_count < scroll_count:
