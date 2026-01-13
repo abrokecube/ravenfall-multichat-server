@@ -153,6 +153,7 @@ class ChatClient(twitchio.Client):
         self.player_char_data: Dict[str, CharData] = {}
         self.player_recommendations: Dict[str, List[str]] = {}
         self.current_mult = 1
+        self.mult_end_time = datetime.now(timezone.utc)
         self.random_leaves: Dict[str, list[ravenpy.Character]] = {}
         self.desync_per_channel_id: Dict[str, float] = {}
         self.desync_last_update_time: float = 0
@@ -418,6 +419,9 @@ class ChatClient(twitchio.Client):
             
     async def handle_exp_scroll(self, channel_id: str, channel_name: str, scroll_count: int, caller_username: str):
         current_count = 0
+        now = datetime.now(timezone.utc)
+        if now > self.mult_end_time:
+            self.current_mult = 1
         if self.current_mult >= 100:
             await self.send_chat_message_as_rand_user(channel_name, "Multiplier is already maxed")
             return
@@ -425,7 +429,7 @@ class ChatClient(twitchio.Client):
             await self.send_chat_message_as_rand_user(channel_name, "I am keeping my scrolls I guess")
             return
         
-        await self.send_chat_message_as_rand_user(channel_name, f"Using {scroll_count} exp scrolls, please be patient...")
+        await self.send_chat_message_as_rand_user(channel_name, f"Using {scroll_count} exp scrolls, please wait...")
         try:
             for char_data in self.player_char_data.values():
                 char = char_data.char
@@ -442,7 +446,7 @@ class ChatClient(twitchio.Client):
                     count = min(scroll_count-current_count, expscroll.amount)
                     await self.send_chat_message(char.user_name, char_channel_name, f'!exp {count}')
                     current_count += count
-                    await asyncio.sleep(.75)
+                    await asyncio.sleep(.5)
         except Exception as e:
             await self.send_chat_message_as_rand_user(channel_name, f"There was an error using exp scrolls.")
             raise e
@@ -765,6 +769,10 @@ class ChatClient(twitchio.Client):
                 case "fs":
                     await self.handle_ferry_scroll(channel_id, channel_name)
                 case "exps":
+                    now = datetime.now(timezone.utc)
+                    if now > self.mult_end_time:
+                        self.current_mult = 1
+
                     scroll_count = 100 - self.current_mult
                     if len(args) > 0 and args[0].isdigit():
                         scroll_count = int(args[0])
@@ -946,6 +954,7 @@ class ChatClient(twitchio.Client):
             "end": mult.end_time.timestamp()
         }))
         self.current_mult = mult.multiplier
+        self.mult_end_time = mult.end_time
         group_size = 3
         users_grouped = [
             self.ravenfall_users[i:i+group_size] 
