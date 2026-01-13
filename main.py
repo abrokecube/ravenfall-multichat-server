@@ -490,7 +490,7 @@ class ChatClient(twitchio.Client):
                     scroll_counts_text_strs.append(f"{channel_c} {utils.pl(channel_c, name, False)}")
             scroll_counts_text = ', '.join(scroll_counts_text_strs)
             await self.send_chat_message_as_rand_user(
-                channel_name, f"Available scrolls - {scroll_counts_text}"
+                channel_name, f"Available channel scrolls - {scroll_counts_text}"
             )
     
     async def handle_count_items(self, channel_id: str, channel_name: str, caller_username: str, args_: str):
