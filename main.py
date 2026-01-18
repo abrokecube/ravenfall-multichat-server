@@ -1161,13 +1161,15 @@ class ChatClient(twitchio.Client):
                     else:
                         skill = char.get_skill(char.training)
                         
+                    skill_is_maxed = skill.level == 999 and (skill.level_exp / skill.total_exp_for_level) > 0.99                   
                     is_training_combat = skill.skill in ravenpy.fighting_skills
-                    recommended_island = ravenpy.get_island_for_level(skill.level)
-                    if is_training_combat and skill.level < char.combat_level and char.combat_level < 300:
-                        recommended_island = ravenpy.get_island_for_level(char.combat_level)
+                    recommended_island_min = ravenpy.get_island_for_level(skill.level)
+                    recommended_island_max = recommended_island_min
+                    if is_training_combat and skill.level < char.combat_level:
+                        recommended_island_max = max(ravenpy.get_island_for_level(char.combat_level), recommended_island_min, key=lambda x: x.value)
                     
-                    if recommended_island != char.island:
-                        rec_island = f"Sail to {recommended_island.name.capitalize()}"
+                    if (not skill_is_maxed) and ((not char.island or char.island.value > recommended_island_max.value) or char.island.value < recommended_island_min.value):
+                        rec_island = f"Sail to {recommended_island_max.name.capitalize()}"
                 
                 rec_items = []
                 short_rec_armor = []
