@@ -1273,9 +1273,19 @@ class ChatClient(twitchio.Client):
                             )
                 stats_str = "\n".join(stats_str_build)
   
+                training_skill_is_maxed = False
+                if char.training:
+                    if char.training in (Skills.All, Skills.Health):
+                        t_skill = min(char.attack, char.defense, char.strength, key=lambda x: x.level)
+                    else:
+                        t_skill = char.get_skill(char.training)
+                    training_skill_is_maxed = t_skill.level == 999 and (t_skill.level_exp / t_skill.total_exp_for_level) > 0.99                   
+
                 status_color = "#000000"
                 if char.exp_per_hour == 0 and not char.in_onsen and not char.training == ravenpy.Skills.Sailing:
                     status_color = "#d62411"  # red
+                if training_skill_is_maxed:
+                    status_color = "#0c5e36"
                 if char.rested_time.total_seconds() == 2*60*60:
                     status_color = "#68aed4"  # blue
                 if rec_island: 
