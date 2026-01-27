@@ -754,6 +754,8 @@ class ChatClient(twitchio.Client):
                     await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
                 case "items":
                     await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
+        if user_id == "0":
+            match command:
                 case "ds":
                     await self.handle_dungeon_scroll(channel_id, channel_name)
                 case "rs":
