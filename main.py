@@ -35,8 +35,8 @@ with open('pid', 'w') as f:
 
 LOGGER: logging.Logger = logging.getLogger("Bot")
 BOT_ID = os.getenv("BOT_ID")
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+TWITCH_APP_ID = os.getenv("TWITCH_APP_ID")
+TWITCH_APP_SECRET = os.getenv("TWITCH_APP_SECRET")
 RANDOM_CHAR_BLACKLIST = ['potatbotat', 'abrokecube']
 DISABLE_INTEGRATIONS = os.getenv("DISABLE_INTEGRATIONS", "").lower() in ("1", "true", "yes")
 
@@ -115,7 +115,9 @@ async def send_ws(message, text: bool=False):
 
 async def ws_serve_task():
     print("Serving WS server...")
-    async with serve(ws_handler, "", 9832) as server:
+    host = os.getenv("MULTICHAT_CLIENT_SERVER_HOST", "0.0.0.0")
+    port = os.getenv("MULTICHAT_CLIENT_SERVER_PORT", 9832)
+    async with serve(ws_handler, host, port) as server:
         await server.serve_forever()
 
 async def get_characters(rfapi: ravenpy.RavenNest, user_id: str=None):
@@ -139,7 +141,7 @@ class CharData:
 
 class ChatClient(twitchio.Client):
     def __init__(self, rf_api: ravenpy.RavenNest=None):
-        super().__init__(client_id=CLIENT_ID, client_secret=CLIENT_SECRET, bot_id=BOT_ID)
+        super().__init__(TWITCH_APP_ID=TWITCH_APP_ID, TWITCH_APP_SECRET=TWITCH_APP_SECRET, bot_id=BOT_ID)
         ws_task = asyncio.create_task(ws_serve_task())
         self.account_channels: Dict[str, List[str]] = {}
         self.connected_channels: Dict[str, ChannelInfo] = {}
@@ -1602,7 +1604,7 @@ async def main() -> None:
     # Setup logging, this is optional, however a nice to have...
     twitchio.utils.setup_logging(level=logging.INFO)
     if not DISABLE_INTEGRATIONS:
-        rfapi = ravenpy.RavenNest(os.getenv("API_USER"), os.getenv("API_PASS"))
+        rfapi = ravenpy.RavenNest(os.getenv("RAVENFALL_API_USER"), os.getenv("RAVENFALL_API_PASS"))
         await rfapi.login()
 
     async def runner() -> None:
