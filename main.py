@@ -141,7 +141,7 @@ class CharData:
 
 class ChatClient(twitchio.Client):
     def __init__(self, rf_api: ravenpy.RavenNest=None):
-        super().__init__(TWITCH_APP_ID=TWITCH_APP_ID, TWITCH_APP_SECRET=TWITCH_APP_SECRET, bot_id=BOT_ID)
+        super().__init__(client_id=TWITCH_APP_ID, client_secret=TWITCH_APP_SECRET, bot_id=BOT_ID)
         ws_task = asyncio.create_task(ws_serve_task())
         self.account_channels: Dict[str, List[str]] = {}
         self.connected_channels: Dict[str, ChannelInfo] = {}
@@ -181,8 +181,15 @@ class ChatClient(twitchio.Client):
         if self.ran_once:
             return
         self.ran_once = True
+        if not os.path.exists("channels.json"):
+            with open("channels.json", "w") as f:
+                f.write("{}")
         with open("channels.json", 'r') as f:
             self.account_channels = json.load(f)
+
+        if not os.path.exists("users.json"):
+            with open("users.json", "w") as f:
+                f.write("{}")        
         with open("users.json", 'r') as f:
             self.user_info = json.load(f)
             
@@ -191,7 +198,10 @@ class ChatClient(twitchio.Client):
         
         if None in self.connected_channels:
             self.connected_channels.pop(None)
-        channels_data = await self.fetch_channels(list(self.connected_channels.keys()))
+        if self.connected_channels:
+            channels_data = await self.fetch_channels(list(self.connected_channels.keys()))
+        else:
+            channels_data = []
         for channel_data in channels_data:
             channel = self.connected_channels[channel_data.user.id]
             channel.category = channel_data.game_name
@@ -218,7 +228,7 @@ class ChatClient(twitchio.Client):
     
     def save_channels(self):
         with open("channels.json", 'w') as f:
-            json.dump(self.account_channels, f)
+            json.dump(self.account_channels, f, indent=4)
     
     async def join_channel(self, *, id: str=None, username: str=None):
         if id is None:
@@ -247,11 +257,11 @@ class ChatClient(twitchio.Client):
         user_info = await self.fetch_users(ids=[resp.user_id])
         self.user_info[resp.user_id] = {
             "name": user_info[0].name,
-            "can_add_moderators": False,
+            "can_add_moderators": "channel:manage:moderators" in resp.scopes,
             "can_execute_commands": True
         }
         with open("users.json", 'w') as f:
-            json.dump(self.user_info, f)
+            json.dump(self.user_info, f, indent=4)
         self.refresh_users()
         return resp
     
@@ -1603,8 +1613,8 @@ command_server: CommandServer
 async def main() -> None:
     # Setup logging, this is optional, however a nice to have...
     twitchio.utils.setup_logging(level=logging.INFO)
+    rfapi = ravenpy.RavenNest(os.getenv("RAVENFALL_API_USER"), os.getenv("RAVENFALL_API_PASS"))
     if not DISABLE_INTEGRATIONS:
-        rfapi = ravenpy.RavenNest(os.getenv("RAVENFALL_API_USER"), os.getenv("RAVENFALL_API_PASS"))
         await rfapi.login()
 
     async def runner() -> None:
