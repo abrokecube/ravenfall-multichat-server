@@ -468,6 +468,7 @@ class ChatClient(twitchio.Client):
         elif current_count < scroll_count:
             await self.send_chat_message_as_rand_user(channel_name, "Ran out of scrolls")
         else:
+            await asyncio.sleep(3)
             await self.send_chat_message_as_rand_user(channel_name, "Finished using scrolls Okay")
             
     async def handle_count_scrolls(self, channel_id: str, channel_name: str, caller_username: str, total_scrolls = False):
