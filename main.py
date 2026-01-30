@@ -1302,11 +1302,11 @@ class ChatClient(twitchio.Client):
                     status_color = "#d62411"  # red
                 if training_skill_is_maxed:
                     status_color = "#0c5e36"
-                if char.rested_time.total_seconds() == 2*60*60:
-                    status_color = "#68aed4"  # blue
                 if rec_island: 
                     status_color = "#ff8426"  # orange
-
+                if char.rested_time.total_seconds() == 2*60*60:
+                    status_color = "#68aed4"  # blue
+                    
                 tooltip_text = utils.strjoin(
                     '\n\n',
                     utils.strjoin('\n',
