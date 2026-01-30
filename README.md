@@ -5,6 +5,7 @@ Initial configuation is done in a `.env` file. This file must exist. There is an
 
 Depends on Python 3.12+ and `uv`. To run just execute `uv run main.py` in a terminal.  
 
+The jank frontend that goes with this jank backend is at [ravenfall-multichat-client](https://github.com/abrokecube/ravenfall-multichat-client) :)
 
 ## Adding accounts
 You must have `.env` already configured.  
