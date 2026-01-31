@@ -23,6 +23,7 @@ import aiohttp
 import random
 from aiohttp import web
 from utils.commandargs import CommandArgs
+from collections import defaultdict
 
 
 load_dotenv()
@@ -1600,6 +1601,43 @@ class CommandServer:
                 {'status': 'error', 'message': str(e)},
                 status=500
             )
+            
+    async def handle_get_scroll_count(self, request: web.Request):
+        try:
+            channel_id = request.match_info.get('channel_id', '')
+            if not channel_id:
+                return web.json_response(
+                    {'status': 'error', 'message': 'Missing channel_id'},
+                    status=400
+                )
+            channel_scroll_counts = defaultdict(int)
+            total_scroll_counts = defaultdict(int)
+            for char_data in self.chat_client.player_char_data.values():
+                char = char_data.char
+                channel = self.chat_client.account_channels[char.twitch_id][char.index-1]
+                if not channel:
+                    continue
+                dscroll = char.get_item(ravenpy.Items.DungeonScroll)
+                rscroll = char.get_item(ravenpy.Items.RaidScroll)
+                expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
+                fscroll = char.get_item("Ferry Scroll")
+                for item in (dscroll, rscroll, expscroll, fscroll):
+                    if not item: 
+                        continue
+                    total_scroll_counts[item.item.name] += item.amount
+                    if channel == channel_id:
+                        channel_scroll_counts[item.item.name] += item.amount
+            return web.json_response({
+                "channel": channel_scroll_counts,
+                "total": total_scroll_counts
+            })
+        except Exception as e:
+            LOGGER.error(f"Error processing command: {str(e)}")
+            return web.json_response(
+                {'status': 'error', 'message': str(e)},
+                status=500
+            )
+
 
     async def start(self):
         runner = web.AppRunner(self.app)
