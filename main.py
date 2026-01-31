@@ -1407,6 +1407,7 @@ class CommandServer:
             web.get('/get_char_data', self.handle_get_chars_data),
             web.get('/get_char_coins/{channel_id}', self.handle_get_chars_coins),
             web.get('/get_char_items/{channel_id}', self.handle_get_chars_items),
+            web.get('/get_scrolls/{channel_id}', self.handle_get_scroll_count),
         ])
 
     async def handle_command(self, request):
