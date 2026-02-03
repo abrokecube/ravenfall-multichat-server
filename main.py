@@ -1406,6 +1406,7 @@ class CommandServer:
         self.app = web.Application()
         self.app.add_routes([
             web.post('/command', self.handle_command),
+            web.post('/track_item_use', self.handle_track_item_use),
             web.get('/get_desync', self.handle_get_desync),
             web.get('/get_total_item_count', self.handle_get_total_item_count),
             web.get('/get_char_data', self.handle_get_chars_data),
@@ -1414,7 +1415,7 @@ class CommandServer:
             web.get('/get_scrolls/{channel_id}', self.handle_get_scroll_count),
         ])
 
-    async def handle_command(self, request):
+    async def handle_command(self, request: web.Request):
         try:
             data = await request.json()
             text = data.get('text', '')
@@ -1438,6 +1439,35 @@ class CommandServer:
             )
             return web.json_response({'status': 'success'})
 
+        except Exception as e:
+            LOGGER.error(f"Error processing command: {str(e)}")
+            return web.json_response(
+                {'status': 'error', 'message': str(e)},
+                status=500
+            )
+    
+    async def handle_track_item_use(self, request: web.Request):
+        try:
+            data = await request.json()
+            user_name: str = data['user_name']
+            char_index: int = data['char_index']
+            item_id: str = data['item_id']
+            amount: int = data['amount']
+            for char in self.chat_client.player_char_data.values():
+                name_match = char.char.user_name.lower() == user_name.lower()
+                index_match = char.char.index == char_index
+                if name_match and index_match:
+                    char_items = char.char.get_all_item(item_id)
+                    if not char_items:
+                        break
+                    for item in char_items:
+                        to_remove = min(amount, item.amount)
+                        item.amount -= to_remove
+                        amount -= to_remove
+                        if amount <= 0:
+                            break
+                    break
+            return web.json_response({'status': 'success'})
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
             return web.json_response(
@@ -1593,6 +1623,7 @@ class CommandServer:
                         {
                             "twitch_id": char_data.char.twitch_id,
                             "user_name": char_data.char.user_name,
+                            "char_index": char_data.char.index,
                             "items": char_items
                         }
                     )
