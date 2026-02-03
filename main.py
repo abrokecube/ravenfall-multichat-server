@@ -85,7 +85,7 @@ async def ws_handler(ws_: ServerConnection):
                 case "add_moderator":
                     target_user = await twitch_client.get_id(message['user'])
                     for ch_id, channel in twitch_client.user_info.items():
-                        if channel['can_add_moderators']:
+                        if channel['is_hosting_ravenfall']:
                             await asyncio.sleep(0.15)
                             a = twitch_client.create_partialuser(ch_id)
                             try:
@@ -258,8 +258,8 @@ class ChatClient(twitchio.Client):
         user_info = await self.fetch_users(ids=[resp.user_id])
         self.user_info[resp.user_id] = {
             "name": user_info[0].name,
-            "can_add_moderators": "channel:manage:moderators" in resp.scopes,
-            "can_execute_commands": True
+            "is_hosting_ravenfall": "channel:manage:moderators" in resp.scopes,
+            "has_elevated_permissions": True
         }
         with open("users.json", 'w') as f:
             json.dump(self.user_info, f, indent=4)
@@ -739,7 +739,7 @@ class ChatClient(twitchio.Client):
         spl = text[len(prefix):].split()
         command = spl[0].lower()
         args = spl[1:]
-        if self.user_info.get(user_id, {}).get("can_execute_commands", False):
+        if self.user_info.get(user_id, {}).get("has_elevated_permissions", False):
             match command:
                 case "sailall":
                     await self.handle_sail(channel_id, channel_name)
@@ -787,7 +787,7 @@ class ChatClient(twitchio.Client):
                         scroll_count = int(args[0])
                     await self.handle_exp_scroll(channel_id, channel_name, scroll_count, user_name)
 
-        if self.user_info.get(channel_id, {}).get("can_add_moderators", False):
+        if self.user_info.get(channel_id, {}).get("is_hosting_ravenfall", False):
             match command:
                 case "scrolls":
                     get_total = False
