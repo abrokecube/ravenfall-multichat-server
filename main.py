@@ -394,6 +394,7 @@ class ChatClient(twitchio.Client):
             dscroll = char.get_item(ravenpy.Items.DungeonScroll)
             if dscroll:
                 await self.send_chat_message(char.user_name, channel_name, '!dungeon start')
+                dscroll.amount -= 1
                 return
         else:
             await self.send_chat_message_as_rand_user(channel_name, 'Out of dungeon scrolls :(')
@@ -410,6 +411,7 @@ class ChatClient(twitchio.Client):
             dscroll = char.get_item(ravenpy.Items.RaidScroll)
             if dscroll:
                 await self.send_chat_message(char.user_name, channel_name, '!raid start')
+                dscroll.amount -= 1
                 break
         else:
             await self.send_chat_message_as_rand_user(channel_name, 'Out of raid scrolls :(')
@@ -426,6 +428,7 @@ class ChatClient(twitchio.Client):
             dscroll = char.get_item("Ferry Scroll")
             if dscroll:
                 await self.send_chat_message(char.user_name, channel_name, '!ferry boost')
+                dscroll.amount -= 1
                 break
         else:
             await self.send_chat_message_as_rand_user(channel_name, 'Out of ferry scrolls :(')
@@ -458,6 +461,7 @@ class ChatClient(twitchio.Client):
                 if expscroll:
                     count = min(scroll_count-current_count, expscroll.amount)
                     await self.send_chat_message(char.user_name, char_channel_name, f'!exp {count}')
+                    expscroll.amount -= count
                     current_count += count
                     await asyncio.sleep(.5)
         except Exception as e:
@@ -468,7 +472,7 @@ class ChatClient(twitchio.Client):
             await self.send_chat_message_as_rand_user(channel_name, "No scrolls :(")
         elif current_count < scroll_count:
             await asyncio.sleep(2)
-            await self.send_chat_message_as_rand_user(channel_name, "Ran out of scrolls")
+            await self.send_chat_message_as_rand_user(channel_name, "Ran out of scrolls!")
         else:
             await asyncio.sleep(2)
             await self.send_chat_message_as_rand_user(channel_name, "Finished using scrolls Okay")
