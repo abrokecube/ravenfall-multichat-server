@@ -1480,13 +1480,14 @@ class CommandServer:
         try:
             data = await request.json()
             user_name: str = data['user_name']
-            char_index: int = data['char_index']
             amount: int = data['amount']
+            hit_count = 0
             for char in self.chat_client.player_char_data.values():
                 name_match = char.char.user_name.lower() == user_name.lower()
-                index_match = char.char.index == char_index
-                if name_match and index_match:
+                if name_match:
                     char.char.coins -= min(amount, char.char.coins)
+                    hit_count += 1
+                if hit_count == 3:
                     break
             return web.json_response({'status': 'success'})
         except Exception as e:
