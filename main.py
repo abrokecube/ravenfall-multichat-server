@@ -1668,8 +1668,12 @@ class CommandServer:
                     {'status': 'error', 'message': 'Missing channel_id'},
                     status=400
                 )
-            channel_scroll_counts = defaultdict(int)
-            total_scroll_counts = defaultdict(int)
+            channel_scroll_counts: dict[str, int] = {}
+            total_scroll_counts: dict[str, int] = {}
+            scroll_names = ("Dungeon Scroll", "Raid Scroll", "Exp Multiplier Scroll", "Ferry Scroll")
+            for a in scroll_names:
+                channel_scroll_counts[a] = 0
+                total_scroll_counts[a] = 0
             for char_data in self.chat_client.player_char_data.values():
                 char = char_data.char
                 channel = self.chat_client.account_channels[char.twitch_id][char.index-1]
