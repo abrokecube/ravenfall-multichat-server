@@ -360,6 +360,19 @@ class ChatClient(twitchio.Client):
             if channel == channel_id:
                 return char
         return None
+    
+    async def handle_joinall(self, channel_name: str):
+        channel_id = self.username_to_id[channel_name.lower()]
+        char_data_list = list(self.player_char_data.values())
+        char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
+        for char_data in char_data_list_shuffled:
+            char = char_data.char
+            if char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
+                continue
+            channel = self.account_channels[char.twitch_id][char.index-1]
+            if channel == channel_id:
+                await self.send_chat_message(char.user_name, channel_name, f"!join {char.index}")
+                await asyncio.sleep(0.5)
 
     async def send_chat_message_as_rand_user(self, channel_name: str, text: str):
         char = self.get_random_char_in_channel(channel_name)
@@ -759,6 +772,8 @@ class ChatClient(twitchio.Client):
                         channel_id, channel_name, 
                         user_name, ' '.join(args)
                     )
+                case "joinall":
+                    await self.handle_joinall(channel_name)
                 case "randleave":
                     await self.handle_random_leave(channel_id, channel_name)
                 case "undorandleave":
