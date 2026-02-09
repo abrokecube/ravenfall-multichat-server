@@ -1002,11 +1002,11 @@ class ChatClient(twitchio.Client):
             out_data = []
             # results = await get_characters(self.rf_api, user_id)
             results = await asyncio.gather(
-                *[get_characters(self.rf_api, a) for a in user_id_group]
+                *[get_characters(self.rf_api, a) for a in user_id_group], return_exceptions=True
             )
             result = [
                 item 
-                for sublist in results 
+                for sublist in results if not isinstance(sublist, Exception)
                 for item in sublist
             ]
             now = datetime.now(timezone.utc) 
