@@ -385,7 +385,9 @@ class ChatClient(twitchio.Client):
             channel_name, f'[rf-multichat] Pong! Watching {len(self.player_char_data)} characters.')
 
     async def handle_raid(self, channel_id: str, channel_name: str):
-        for char_data in self.player_char_data.values():
+        char_datas = list(self.player_char_data.values())
+        random.shuffle(char_datas)
+        for char_data in char_datas:
             char = char_data.char
             if not char.training in ravenpy.combat_skills:
                 continue
@@ -396,7 +398,9 @@ class ChatClient(twitchio.Client):
                     await asyncio.sleep(0.4)
                     
     async def handle_dungeon_scroll(self, channel_id: str, channel_name: str):
-        for char_data in self.player_char_data.values():
+        char_datas = list(self.player_char_data.values())
+        random.shuffle(char_datas)
+        for char_data in char_datas:
             user_in_channel = ""
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
@@ -413,7 +417,9 @@ class ChatClient(twitchio.Client):
             await self.send_chat_message_as_rand_user(channel_name, 'Out of dungeon scrolls :(')
             
     async def handle_raid_scroll(self, channel_id: str, channel_name: str):
-        for char_data in self.player_char_data.values():
+        char_datas = list(self.player_char_data.values())
+        random.shuffle(char_datas)
+        for char_data in char_datas:
             user_in_channel = ""
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
@@ -430,7 +436,9 @@ class ChatClient(twitchio.Client):
             await self.send_chat_message_as_rand_user(channel_name, 'Out of raid scrolls :(')
 
     async def handle_ferry_scroll(self, channel_id: str, channel_name: str):
-        for char_data in self.player_char_data.values():
+        char_datas = list(self.player_char_data.values())
+        random.shuffle(char_datas)
+        for char_data in char_datas:
             user_in_channel = ""
             char = char_data.char
             channel = self.account_channels[char.twitch_id][char.index-1]
