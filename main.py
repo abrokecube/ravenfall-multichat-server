@@ -999,7 +999,7 @@ class ChatClient(twitchio.Client):
         }))
         self.current_mult = mult.multiplier
         self.mult_end_time = mult.end_time
-        group_size = 3
+        group_size = 2
         users_grouped = [
             self.ravenfall_users[i:i+group_size] 
             for i in range(0, len(self.ravenfall_users), group_size)
