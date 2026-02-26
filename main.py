@@ -635,7 +635,7 @@ class ChatClient(twitchio.Client):
             else:
                 extended_output.append(f"    ?say -as:{char_item['char_name']} !gift {gift_to} {item.name} {char_item['amount']}")
         if total_items:
-            pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
+            pastas_url = await utils.upload_to_borkedbin("\n".join(extended_output))
             await self.send_chat_message_as_rand_user(
                 channel_name,
                 f"{total_count}x {item.name} total. {pastas_url}"
@@ -647,7 +647,7 @@ class ChatClient(twitchio.Client):
                     f"No {item.name} here :/"
                 )
                 return
-            pastas_url = await utils.upload_to_pastes("\n".join(extended_output))
+            pastas_url = await utils.upload_to_borkedbin("\n".join(extended_output))
             await self.send_chat_message_as_rand_user(
                 channel_name, 
                 f"{total_per_channel_id[channel_id]}x {item.name} here. {pastas_url}"
@@ -744,7 +744,7 @@ class ChatClient(twitchio.Client):
             "",
             "\n".join(gift_commands),
         ]
-        text_url = await utils.upload_to_pastes("\n".join(out_text_lines))
+        text_url = await utils.upload_to_borkedbin("\n".join(out_text_lines))
         await self.send_chat_message_as_rand_user(
             channel_name, f"Commands: {text_url}"
         )

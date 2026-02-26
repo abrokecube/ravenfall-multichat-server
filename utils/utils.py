@@ -398,6 +398,20 @@ async def upload_to_pastes(text: str):
             logger.error(f"Failed to upload text to pastes.dev: {r.status} {await r.text()}")
             return None
 
+async def upload_to_borkedbin(text: str):
+    async with aiohttp.ClientSession() as s:
+        r = await s.post(
+            "https://bin.borkedcube.moe/api/add/text",
+            headers={
+                "X-Api-Key": os.getenv("BORKEDBIN_API_KEY", "")
+            },
+            data=aiohttp.FormData({"content": text})
+        )
+        if r.status == 200:
+            return (await r.json())['url']
+        else:
+            return None
+
 def get_char_identifier(char: ravenpy.Character):
     char_name = truncate_sentence(char.name, 40)
     if char_name == str(char.index):
