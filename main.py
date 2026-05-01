@@ -341,7 +341,7 @@ class ChatClient(twitchio.Client):
 
     async def handle_undo_random_leave(self, channel_id: str, channel_name: str):
         if channel_id not in self.random_leaves or not self.random_leaves[channel_id]:
-            await self.send_chat_message(channel_name, channel_name, "No random leaves to undo")
+            # await self.send_chat_message(channel_name, channel_name, "No random leaves to undo")
             return
         for char in self.random_leaves[channel_id]:
             await self.send_chat_message(char.user_name, channel_name, f'!join {char.index}')
