@@ -18,3 +18,5 @@ set chat color
 
 http://localhost:4343/oauth?scopes=user:read:chat%20user:write:chat%20user:bot
 authorize
+
+login to ravenfall
