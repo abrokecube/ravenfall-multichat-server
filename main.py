@@ -23,12 +23,11 @@ import aiohttp
 import random
 from aiohttp import web
 from utils.commandargs import CommandArgs
-from collections import defaultdict
 
 
 load_dotenv()
 
-with open('pid', 'w') as f:
+with open("pid", "w") as f:
     f.write(str(os.getpid()))
 
 # http://localhost:4343/oauth?scopes=user:read:chat%20user:write:chat%20user:bot
@@ -38,26 +37,31 @@ LOGGER: logging.Logger = logging.getLogger("Bot")
 BOT_ID = os.getenv("BOT_ID")
 TWITCH_APP_ID = os.getenv("TWITCH_APP_ID")
 TWITCH_APP_SECRET = os.getenv("TWITCH_APP_SECRET")
-RANDOM_CHAR_BLACKLIST = ['potatbotat', 'abrokecube']
-DISABLE_INTEGRATIONS = os.getenv("DISABLE_INTEGRATIONS", "").lower() in ("1", "true", "yes")
+RANDOM_CHAR_BLACKLIST = ["potatbotat", "abrokecube"]
+DISABLE_INTEGRATIONS = os.getenv("DISABLE_INTEGRATIONS", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 # From https://lospec.com/palette-list/bubblegum-16
 COLORS = [
-    # "#7f0622", 
-    "#ff8426", 
-    "#10d275", 
-    "#94216a", 
-    "#ffd100", 
-    # "#430067", 
-    "#007899", 
-    # "#234975", 
-    "#ff80a4", 
-    "#68aed4", 
-    "#bfff3c", 
-    "#ff2674", 
-    "#d62411", 
-    # "#002859", 
+    # "#7f0622",
+    "#ff8426",
+    "#10d275",
+    "#94216a",
+    "#ffd100",
+    # "#430067",
+    "#007899",
+    # "#234975",
+    "#ff80a4",
+    "#68aed4",
+    "#bfff3c",
+    "#ff2674",
+    "#d62411",
+    # "#002859",
 ]
+
 
 @dataclass
 class ChannelInfo:
@@ -67,7 +71,10 @@ class ChannelInfo:
     display_name: str = ""
     live: bool = False
 
+
 connected_clients = set()
+
+
 async def ws_handler(ws_: ServerConnection):
     global twitch_client
     connected_clients.add(ws_)
@@ -75,30 +82,35 @@ async def ws_handler(ws_: ServerConnection):
         async for data in ws_:
             print("Recieved: ", data)
             message = json.loads(data)
-            match message['type']:
+            match message["type"]:
                 case "send_message":
                     await twitch_client.send_chat_message(
-                        message['user'], message['channel'], message['text']
+                        message["user"], message["channel"], message["text"]
                     )
                 case "join":
-                    await twitch_client.join_channel(username=message['channel'])
+                    await twitch_client.join_channel(username=message["channel"])
                 case "add_moderator":
-                    target_user = await twitch_client.get_id(message['user'])
+                    target_user = await twitch_client.get_id(message["user"])
                     for ch_id, channel in twitch_client.user_info.items():
-                        if channel['is_hosting_ravenfall']:
+                        if channel["is_hosting_ravenfall"]:
                             await asyncio.sleep(0.15)
                             a = twitch_client.create_partialuser(ch_id)
                             try:
                                 await a.add_moderator(target_user)
                             except twitchio.exceptions.HTTPException as e:
-                                await twitch_client.send_system_message(f"Failed to add {message['user']} as mod in {channel['name']}: {e.extra['message']}")
+                                await twitch_client.send_system_message(
+                                    f"Failed to add {message['user']} as mod in {channel['name']}: {e.extra['message']}"
+                                )
                                 continue
-                            await twitch_client.send_system_message(f"Added {message['user']} as mod in {channel['name']}")
+                            await twitch_client.send_system_message(
+                                f"Added {message['user']} as mod in {channel['name']}"
+                            )
         ...
     except Exception as e:
         print(f"Error in ws_handler: {e}")
 
-async def send_ws(message, text: bool=False):
+
+async def send_ws(message, text: bool = False):
     disconnected_clients = set()
     for client in connected_clients:
         try:
@@ -108,11 +120,12 @@ async def send_ws(message, text: bool=False):
         except Exception as e:
             print(f"Error sending message to client: {e}")
             disconnected_clients.add(client)
-    
+
     # Clean up disconnected clients
     for client in disconnected_clients:
         if client in connected_clients:
             connected_clients.remove(client)
+
 
 async def ws_serve_task():
     print("Serving WS server...")
@@ -121,15 +134,17 @@ async def ws_serve_task():
     async with serve(ws_handler, host, port) as server:
         await server.serve_forever()
 
-async def get_characters(rfapi: ravenpy.RavenNest, user_id: str=None):
+
+async def get_characters(rfapi: ravenpy.RavenNest, user_id: str = None):
     tasks = [
-        rfapi.get_character(user_id,'1'),
-        rfapi.get_character(user_id,'2'),
-        rfapi.get_character(user_id,'3')
+        rfapi.get_character(user_id, "1"),
+        rfapi.get_character(user_id, "2"),
+        rfapi.get_character(user_id, "3"),
     ]
     user_chars = await asyncio.gather(*tasks, return_exceptions=False)
     user_chars = [x for x in user_chars if isinstance(x, ravenpy.Character)]
     return user_chars
+
 
 @dataclass
 class CharData:
@@ -140,9 +155,12 @@ class CharData:
     channel_id: str | None = None
     recommendations: List[str] = field(default_factory=list)
 
+
 class ChatClient(twitchio.Client):
-    def __init__(self, rf_api: ravenpy.RavenNest=None):
-        super().__init__(client_id=TWITCH_APP_ID, client_secret=TWITCH_APP_SECRET, bot_id=BOT_ID)
+    def __init__(self, rf_api: ravenpy.RavenNest = None):
+        super().__init__(
+            client_id=TWITCH_APP_ID, client_secret=TWITCH_APP_SECRET, bot_id=BOT_ID
+        )
         ws_task = asyncio.create_task(ws_serve_task())
         self.account_channels: Dict[str, List[str]] = {}
         self.connected_channels: Dict[str, ChannelInfo] = {}
@@ -161,10 +179,10 @@ class ChatClient(twitchio.Client):
         self.desync_per_channel_id: Dict[str, float] = {}
         self.desync_last_update_time: float = 0
         self._is_online: bool = False
-    
+
     async def get_username(self, user_id: str):
         user_id = str(user_id)
-        if not user_id in self.username_to_id:
+        if user_id not in self.username_to_id:
             user = await self.fetch_users(ids=[user_id])
             self.username_to_id[user[0].name] = user_id
             self.id_to_username[user_id] = user[0].name
@@ -172,7 +190,7 @@ class ChatClient(twitchio.Client):
 
     async def get_id(self, username: str):
         username = username.lower()
-        if not username in self.id_to_username:
+        if username not in self.id_to_username:
             user = await self.fetch_users(logins=[username])
             self.id_to_username[user[0].id] = username
             self.username_to_id[username] = user[0].id
@@ -185,22 +203,24 @@ class ChatClient(twitchio.Client):
         if not os.path.exists("channels.json"):
             with open("channels.json", "w") as f:
                 f.write("{}")
-        with open("channels.json", 'r') as f:
+        with open("channels.json", "r") as f:
             self.account_channels = json.load(f)
 
         if not os.path.exists("users.json"):
             with open("users.json", "w") as f:
-                f.write("{}")        
-        with open("users.json", 'r') as f:
+                f.write("{}")
+        with open("users.json", "r") as f:
             self.user_info = json.load(f)
-            
+
         for channel_ids in self.account_channels.values():
             self.connected_channels.update([(x, ChannelInfo(x)) for x in channel_ids])
-        
+
         if None in self.connected_channels:
             self.connected_channels.pop(None)
         if self.connected_channels:
-            channels_data = await self.fetch_channels(list(self.connected_channels.keys()))
+            channels_data = await self.fetch_channels(
+                list(self.connected_channels.keys())
+            )
         else:
             channels_data = []
         for channel_data in channels_data:
@@ -210,7 +230,7 @@ class ChatClient(twitchio.Client):
             channel.display_name = channel_data.user.display_name
             self.username_to_id[channel.name.lower()] = channel.id
             self.id_to_username[str(channel.id)] = channel.name
-        
+
         if not DISABLE_INTEGRATIONS:
             for channel_id in self.connected_channels:
                 payload = eventsub.ChatMessageSubscription(
@@ -226,12 +246,12 @@ class ChatClient(twitchio.Client):
             self.send_channels.start()
             self.resync_routine.start()
         LOGGER.info("Finished setup hook!")
-    
+
     def save_channels(self):
-        with open("channels.json", 'w') as f:
+        with open("channels.json", "w") as f:
             json.dump(self.account_channels, f, indent=4)
-    
-    async def join_channel(self, *, id: str=None, username: str=None):
+
+    async def join_channel(self, *, id: str = None, username: str = None):
         if id is None:
             user = (await self.fetch_users(logins=[username]))[0]
             channel = await self.fetch_channel(broadcaster_id=user.id)
@@ -246,57 +266,75 @@ class ChatClient(twitchio.Client):
             broadcaster_user_id=str(id), user_id=str(self.bot_id)
         )
         await self.subscribe_websocket(payload=payload, token_for=self.bot_id)
-        payload = eventsub.ChannelUpdateSubscription(
-            broadcaster_user_id=str(id)
-        )
+        payload = eventsub.ChannelUpdateSubscription(broadcaster_user_id=str(id))
         await self.subscribe_websocket(payload=payload, token_for=self.bot_id)
-        self.connected_channels[id] = ChannelInfo(id, username, channel.game_name, channel.user.display_name)
+        self.connected_channels[id] = ChannelInfo(
+            id, username, channel.game_name, channel.user.display_name
+        )
         await self.send_system_message(f"Joined {channel.user.display_name}")
-    
+
     async def add_token(self, token, refresh):
-        resp: twitchio.authentication.ValidateTokenPayload = await super().add_token(token, refresh)
+        resp: twitchio.authentication.ValidateTokenPayload = await super().add_token(
+            token, refresh
+        )
         user_info = await self.fetch_users(ids=[resp.user_id])
         self.user_info[resp.user_id] = {
             "name": user_info[0].name,
             "is_hosting_ravenfall": "channel:manage:moderators" in resp.scopes,
-            "has_elevated_permissions": True
+            "has_elevated_permissions": True,
         }
-        with open("users.json", 'w') as f:
+        with open("users.json", "w") as f:
             json.dump(self.user_info, f, indent=4)
         self.refresh_users()
         return resp
-    
+
     def refresh_users(self):
         self.ravenfall_users = []
         for id, user in self.user_info.items():
-            self.username_to_id[user['name']] = id
+            self.username_to_id[user["name"]] = id
             self.id_to_username[id] = user["name"]
             self.ravenfall_users.append(id)
-            if not id in self.account_channels:
+            if id not in self.account_channels:
                 self.account_channels[id] = []
             if len(self.account_channels[id]) < 3:
                 while len(self.account_channels[id]) < 3:
                     self.account_channels[id].append(None)
-        mention_re_text = '|'.join([f'(^|\\s)@?{x}(?=\\W|$)' for x in self.username_to_id.keys()])
+        mention_re_text = "|".join(
+            [f"(^|\\s)@?{x}(?=\\W|$)" for x in self.username_to_id.keys()]
+        )
         self.mention_re = re.compile(mention_re_text)
         self.save_channels()
         print(mention_re_text)
-    
-    async def handle_sail(self, channel_id: str, channel_name: str):
+
+    async def handle_sail(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         for char_data in self.player_char_data.values():
             char = char_data.char
             if char.training in (None, Skills.Sailing):
                 if char.in_dungeon or char.in_raid:
                     continue
                 if char.in_onsen:
-                    await self.send_chat_message(char.user_name, channel_name, '!rest leave')
+                    await self.send_chat_message(
+                        char.user_name, channel_name, "!rest leave"
+                    )
                     await asyncio.sleep(2)
-                channel = self.account_channels[char.twitch_id][char.index-1]
+                channel = self.account_channels[char.twitch_id][char.index - 1]
                 if channel == channel_id:
-                    await self.send_chat_message(char.user_name, channel_name, '!sail')
+                    await self.send_chat_message(
+                        char.user_name, channel_name, "!sail", output_to_channel_id
+                    )
                     await asyncio.sleep(0.5)
 
-    async def handle_random_leave(self, channel_id: str, channel_name: str):
+    async def handle_random_leave(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         if channel_id not in self.random_leaves:
             self.random_leaves[channel_id] = []
         char_data_list = list(self.player_char_data.values())
@@ -305,46 +343,87 @@ class ChatClient(twitchio.Client):
             if char_data.char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
                 continue
             char = char_data.char
-            channel = self.account_channels[char.twitch_id][char.index-1]
-            if channel == channel_id \
-                and char.twitch_id != os.getenv("OWNER_ID") \
-                and char.training not in (None, Skills.Sailing) \
-                and not (char.in_dungeon or char.in_raid):
-                await self.send_chat_message(char.user_name, channel_name, '!leave')
+            channel = self.account_channels[char.twitch_id][char.index - 1]
+            if (
+                channel == channel_id
+                and char.twitch_id != os.getenv("OWNER_ID")
+                and char.training not in (None, Skills.Sailing)
+                and not (char.in_dungeon or char.in_raid)
+            ):
+                await self.send_chat_message(
+                    char.user_name, channel_name, "!leave", output_to_channel_id
+                )
                 self.random_leaves[channel_id].append(char)
                 return
 
-    async def handle_random_relog(self, channel_id: str, channel_name: str):
+    async def handle_random_relog(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         if channel_id not in self.random_leaves:
             self.random_leaves[channel_id] = []
         char_data_list = list(self.player_char_data.values())
         char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
         for char_data in char_data_list_shuffled:
             char = char_data.char
-            channel = self.account_channels[char.twitch_id][char.index-1]
+            channel = self.account_channels[char.twitch_id][char.index - 1]
             if channel == channel_id:
-                if char.user_name.lower() not in RANDOM_CHAR_BLACKLIST \
-                and char.training not in (None, Skills.Sailing):
+                if (
+                    char.user_name.lower() not in RANDOM_CHAR_BLACKLIST
+                    and char.training not in (None, Skills.Sailing)
+                ):
                     if not (char.in_dungeon or char.in_raid):
-                        await self.send_chat_message(char.user_name, channel_name, '!leave')
+                        await self.send_chat_message(
+                            char.user_name, channel_name, "!leave"
+                        )
                         await asyncio.sleep(5)
-                        await self.send_chat_message(char.user_name, channel_name, f'!join {char.index}')
+                        await self.send_chat_message(
+                            char.user_name,
+                            channel_name,
+                            f"!join {char.index}",
+                            output_to_channel_id,
+                        )
                         return
         print("No eligible characters for relog")
 
-    async def handle_town_desync(self, channel_id: str, channel_name: str):
-        if not channel_id in self.desync_per_channel_id:
+    async def handle_town_desync(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
+        if channel_id not in self.desync_per_channel_id:
             return
-        d = utils.format_seconds(self.desync_per_channel_id[channel_id], utils.TimeSize.SMALL_SPACES)
-        e = utils.format_seconds(time.time() - self.desync_last_update_time, utils.TimeSize.SMALL_SPACES)
-        await self.send_chat_message_as_rand_user(channel_name, f"Estimated town desync: {d}. Updated {e} ago.")
+        d = utils.format_seconds(
+            self.desync_per_channel_id[channel_id], utils.TimeSize.SMALL_SPACES
+        )
+        e = utils.format_seconds(
+            time.time() - self.desync_last_update_time, utils.TimeSize.SMALL_SPACES
+        )
+        await self.send_chat_message_as_rand_user(
+            channel_name,
+            f"Estimated town desync: {d}. Updated {e} ago.",
+            output_to_channel_id,
+        )
 
-    async def handle_undo_random_leave(self, channel_id: str, channel_name: str):
+    async def handle_undo_random_leave(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         if channel_id not in self.random_leaves or not self.random_leaves[channel_id]:
             # await self.send_chat_message(channel_name, channel_name, "No random leaves to undo")
             return
         for char in self.random_leaves[channel_id]:
-            await self.send_chat_message(char.user_name, channel_name, f'!join {char.index}')
+            await self.send_chat_message(
+                char.user_name,
+                channel_name,
+                f"!join {char.index}",
+                output_to_channel_id,
+            )
             await asyncio.sleep(0.5)
         self.random_leaves[channel_id] = []
 
@@ -356,12 +435,14 @@ class ChatClient(twitchio.Client):
             char = char_data.char
             if char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
                 continue
-            channel = self.account_channels[char.twitch_id][char.index-1]
+            channel = self.account_channels[char.twitch_id][char.index - 1]
             if channel == channel_id:
                 return char
         return None
-    
-    async def handle_joinall(self, channel_name: str):
+
+    async def handle_joinall(
+        self, channel_name: str, output_to_channel_id: str | None = None
+    ):
         channel_id = self.username_to_id[channel_name.lower()]
         char_data_list = list(self.player_char_data.values())
         char_data_list_shuffled = random.sample(char_data_list, k=len(char_data_list))
@@ -369,104 +450,173 @@ class ChatClient(twitchio.Client):
             char = char_data.char
             if char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
                 continue
-            channel = self.account_channels[char.twitch_id][char.index-1]
+            channel = self.account_channels[char.twitch_id][char.index - 1]
             if channel == channel_id:
-                await self.send_chat_message(char.user_name, channel_name, f"!join {char.index}")
+                await self.send_chat_message(
+                    char.user_name,
+                    channel_name,
+                    f"!join {char.index}",
+                    output_to_channel_id,
+                )
                 await asyncio.sleep(0.5)
 
-    async def send_chat_message_as_rand_user(self, channel_name: str, text: str):
+    async def send_chat_message_as_rand_user(
+        self, channel_name: str, text: str, output_to_channel_id: str | None = None
+    ):
         char = self.get_random_char_in_channel(channel_name)
         if not char:
             return
-        await self.send_chat_message(char.user_name, channel_name, text)
+        await self.send_chat_message(
+            char.user_name, channel_name, text, output_to_channel_id
+        )
 
-    async def handle_ping(self, channel_id: str, channel_name: str):
+    async def handle_ping(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         await self.send_chat_message_as_rand_user(
-            channel_name, f'[rf-multichat] Pong! Watching {len(self.player_char_data)} characters.')
+            channel_name,
+            f"[rf-multichat] Pong! Watching {len(self.player_char_data)} characters.",
+            output_to_channel_id,
+        )
 
-    async def handle_raid(self, channel_id: str, channel_name: str):
+    async def handle_raid(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         char_datas = list(self.player_char_data.values())
         random.shuffle(char_datas)
         for char_data in char_datas:
             char = char_data.char
-            if not char.training in ravenpy.combat_skills:
+            if char.training not in ravenpy.combat_skills:
                 continue
             if char.auto_join_raid_count == 0:
-                channel = self.account_channels[char.twitch_id][char.index-1]
+                channel = self.account_channels[char.twitch_id][char.index - 1]
                 if channel == channel_id:
-                    await self.send_chat_message(char.user_name, channel_name, '!auto raid on')
+                    await self.send_chat_message(
+                        char.user_name,
+                        channel_name,
+                        "!auto raid on",
+                        output_to_channel_id,
+                    )
                     await asyncio.sleep(0.4)
-                    
-    async def handle_dungeon_scroll(self, channel_id: str, channel_name: str):
+
+    async def handle_dungeon_scroll(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         char_datas = list(self.player_char_data.values())
         random.shuffle(char_datas)
         for char_data in char_datas:
             user_in_channel = ""
             char = char_data.char
-            channel = self.account_channels[char.twitch_id][char.index-1]
+            channel = self.account_channels[char.twitch_id][char.index - 1]
             if channel != channel_id:
                 continue
             if not user_in_channel:
                 user_in_channel = char.user_name
             dscroll = char.get_item(ravenpy.Items.DungeonScroll)
             if dscroll:
-                await self.send_chat_message(char.user_name, channel_name, '!dungeon start')
+                await self.send_chat_message(
+                    char.user_name, channel_name, "!dungeon start"
+                )
                 dscroll.amount -= 1
                 return
         else:
-            await self.send_chat_message_as_rand_user(channel_name, 'Out of dungeon scrolls :(')
-            
-    async def handle_raid_scroll(self, channel_id: str, channel_name: str):
+            await self.send_chat_message_as_rand_user(
+                channel_name, "Out of dungeon scrolls :(", output_to_channel_id
+            )
+
+    async def handle_raid_scroll(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         char_datas = list(self.player_char_data.values())
         random.shuffle(char_datas)
         for char_data in char_datas:
             user_in_channel = ""
             char = char_data.char
-            channel = self.account_channels[char.twitch_id][char.index-1]
+            channel = self.account_channels[char.twitch_id][char.index - 1]
             if channel != channel_id:
                 continue
             if not user_in_channel:
                 user_in_channel = char.user_name
             dscroll = char.get_item(ravenpy.Items.RaidScroll)
             if dscroll:
-                await self.send_chat_message(char.user_name, channel_name, '!raid start')
+                await self.send_chat_message(
+                    char.user_name, channel_name, "!raid start"
+                )
                 dscroll.amount -= 1
                 break
         else:
-            await self.send_chat_message_as_rand_user(channel_name, 'Out of raid scrolls :(')
+            await self.send_chat_message_as_rand_user(
+                channel_name, "Out of raid scrolls :(", output_to_channel_id
+            )
 
-    async def handle_ferry_scroll(self, channel_id: str, channel_name: str):
+    async def handle_ferry_scroll(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         char_datas = list(self.player_char_data.values())
         random.shuffle(char_datas)
         for char_data in char_datas:
             user_in_channel = ""
             char = char_data.char
-            channel = self.account_channels[char.twitch_id][char.index-1]
+            channel = self.account_channels[char.twitch_id][char.index - 1]
             if channel != channel_id:
                 continue
             if not user_in_channel:
                 user_in_channel = char.user_name
             dscroll = char.get_item("Ferry Scroll")
             if dscroll:
-                await self.send_chat_message(char.user_name, channel_name, '!ferry boost')
+                await self.send_chat_message(
+                    char.user_name, channel_name, "!ferry boost"
+                )
                 dscroll.amount -= 1
                 break
         else:
-            await self.send_chat_message_as_rand_user(channel_name, 'Out of ferry scrolls :(')
-            
-    async def handle_exp_scroll(self, channel_id: str, channel_name: str, scroll_count: int, caller_username: str):
+            await self.send_chat_message_as_rand_user(
+                channel_name, "Out of ferry scrolls :(", output_to_channel_id
+            )
+
+    async def handle_exp_scroll(
+        self,
+        channel_id: str,
+        channel_name: str,
+        scroll_count: int,
+        caller_username: str,
+        output_to_channel_id: str | None = None,
+    ):
         current_count = 0
         now = datetime.now(timezone.utc)
         if now > self.mult_end_time:
             self.current_mult = 1
         if self.current_mult >= 100:
-            await self.send_chat_message_as_rand_user(channel_name, "Multiplier is already maxed")
+            await self.send_chat_message_as_rand_user(
+                channel_name, "Multiplier is already maxed", output_to_channel_id
+            )
             return
         if scroll_count <= 0:
-            await self.send_chat_message_as_rand_user(channel_name, "I am keeping my scrolls I guess")
+            await self.send_chat_message_as_rand_user(
+                channel_name, "I am keeping my scrolls I guess", output_to_channel_id
+            )
             return
-        
-        await self.send_chat_message_as_rand_user(channel_name, f"Using {scroll_count} exp scrolls, please wait...")
+
+        await self.send_chat_message_as_rand_user(
+            channel_name,
+            f"Using {scroll_count} exp scrolls, please wait...",
+            output_to_channel_id,
+        )
         try:
             for char_data in self.player_char_data.values():
                 char = char_data.char
@@ -474,35 +624,54 @@ class ChatClient(twitchio.Client):
                     continue
                 if current_count >= scroll_count:
                     break
-                channel = self.account_channels[char.twitch_id][char.index-1]
+                channel = self.account_channels[char.twitch_id][char.index - 1]
                 if not channel:
                     continue
                 char_channel_name = await self.get_username(channel)
                 expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
                 if expscroll:
-                    count = min(scroll_count-current_count, expscroll.amount)
-                    await self.send_chat_message(char.user_name, char_channel_name, f'!exp {count}')
+                    count = min(scroll_count - current_count, expscroll.amount)
+                    await self.send_chat_message(
+                        char.user_name, char_channel_name, f"!exp {count}"
+                    )
                     expscroll.amount -= count
                     current_count += count
-                    await asyncio.sleep(.5)
+                    await asyncio.sleep(0.5)
         except Exception as e:
-            await self.send_chat_message_as_rand_user(channel_name, f"There was an error using exp scrolls.")
+            await self.send_chat_message_as_rand_user(
+                channel_name,
+                "There was an error using exp scrolls.",
+                output_to_channel_id,
+            )
             raise e
-            
+
         if current_count == 0:
-            await self.send_chat_message_as_rand_user(channel_name, "No scrolls :(")
+            await self.send_chat_message_as_rand_user(
+                channel_name, "No scrolls :(", output_to_channel_id
+            )
         elif current_count < scroll_count:
             await asyncio.sleep(2)
-            await self.send_chat_message_as_rand_user(channel_name, "Ran out of scrolls!")
+            await self.send_chat_message_as_rand_user(
+                channel_name, "Ran out of scrolls!", output_to_channel_id
+            )
         else:
             await asyncio.sleep(2)
-            await self.send_chat_message_as_rand_user(channel_name, "Finished using scrolls Okay")
-            
-    async def handle_count_scrolls(self, channel_id: str, channel_name: str, caller_username: str, total_scrolls = False):
+            await self.send_chat_message_as_rand_user(
+                channel_name, "Finished using scrolls Okay", output_to_channel_id
+            )
+
+    async def handle_count_scrolls(
+        self,
+        channel_id: str,
+        channel_name: str,
+        caller_username: str,
+        total_scrolls=False,
+        output_to_channel_id: str | None = None,
+    ):
         scroll_counts = {}
         for char_data in self.player_char_data.values():
             char = char_data.char
-            channel = self.account_channels[char.twitch_id][char.index-1]
+            channel = self.account_channels[char.twitch_id][char.index - 1]
             if not channel:
                 continue
             dscroll = char.get_item(ravenpy.Items.DungeonScroll)
@@ -510,9 +679,9 @@ class ChatClient(twitchio.Client):
             expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
             fscroll = char.get_item("Ferry Scroll")
             for item in (dscroll, rscroll, expscroll, fscroll):
-                if not item: 
+                if not item:
                     continue
-                if not item.item.name in scroll_counts:
+                if item.item.name not in scroll_counts:
                     scroll_counts[item.item.name] = [0, 0]
                 scroll_counts[item.item.name][0] += item.amount
                 if channel == channel_id:
@@ -521,23 +690,41 @@ class ChatClient(twitchio.Client):
         scroll_counts_list.sort(key=lambda x: x[0])
         # scroll_counts_text = ', '.join(f"{name}: {channel_c}x ({total_c}x)" for name, (total_c, channel_c) in scroll_counts_list)
         if total_scrolls:
-            scroll_counts_text = ', '.join(f"{total_c} {utils.pl(total_c, name, False)}" for name, (total_c, channel_c) in scroll_counts_list)
+            scroll_counts_text = ", ".join(
+                f"{total_c} {utils.pl(total_c, name, False)}"
+                for name, (total_c, channel_c) in scroll_counts_list
+            )
             await self.send_chat_message_as_rand_user(
-                channel_name, f"Total available scrolls across channels - {scroll_counts_text}"
+                channel_name,
+                f"Total available scrolls across channels - {scroll_counts_text}",
+                output_to_channel_id,
             )
         else:
             scroll_counts_text_strs = []
             for name, (total_c, channel_c) in scroll_counts_list:
                 if name == "Exp Multiplier Scroll":
-                    scroll_counts_text_strs.append(f"{total_c} {utils.pl(channel_c, name, False)}")
+                    scroll_counts_text_strs.append(
+                        f"{total_c} {utils.pl(channel_c, name, False)}"
+                    )
                 else:
-                    scroll_counts_text_strs.append(f"{channel_c} {utils.pl(channel_c, name, False)}")
-            scroll_counts_text = ', '.join(scroll_counts_text_strs)
+                    scroll_counts_text_strs.append(
+                        f"{channel_c} {utils.pl(channel_c, name, False)}"
+                    )
+            scroll_counts_text = ", ".join(scroll_counts_text_strs)
             await self.send_chat_message_as_rand_user(
-                channel_name, f"Available channel scrolls - {scroll_counts_text}"
+                channel_name,
+                f"Available channel scrolls - {scroll_counts_text}",
+                output_to_channel_id,
             )
-    
-    async def handle_count_items(self, channel_id: str, channel_name: str, caller_username: str, args_: str):
+
+    async def handle_count_items(
+        self,
+        channel_id: str,
+        channel_name: str,
+        caller_username: str,
+        args_: str,
+        output_to_channel_id: str | None = None,
+    ):
         args = CommandArgs(args_)
         item_name_args = []
         for arg in args.args:
@@ -547,46 +734,59 @@ class ChatClient(twitchio.Client):
                 if len(item_name_args) > 0:
                     break
         item_name = " ".join(item_name_args).strip()
-        
+
         total_items = False
-        if args.get_flag(['a', 'all', 't', 'total'], case_sensitive=False):
+        if args.get_flag(["a", "all", "t", "total"], case_sensitive=False):
             total_items = True
         gift_to = None
-        _gift_to_flag = args.get_flag(['to', 't', 'g', 'gift'], case_sensitive=False)
+        _gift_to_flag = args.get_flag(["to", "t", "g", "gift"], case_sensitive=False)
         if _gift_to_flag:
             if _gift_to_flag.value:
                 gift_to = _gift_to_flag.value.strip()
             else:
                 gift_to = caller_username
         max_count = 0
-        _max_count_flag = args.get_flag(['max', 'm', 'c', 'count'], case_sensitive=False)
+        _max_count_flag = args.get_flag(
+            ["max", "m", "c", "count"], case_sensitive=False
+        )
         if _max_count_flag:
             if _max_count_flag.value:
                 try:
                     max_count = int(_max_count_flag.value)
                 except ValueError:
                     pass
-                
+
         if len(item_name) < 2:
             await self.send_chat_message_as_rand_user(
-                channel_name, "Item name must be at least 2 characters long"
+                channel_name,
+                "Item name must be at least 2 characters long",
+                output_to_channel_id,
             )
             return
         item_result = ravenpy.search_item(item_name, limit=1)
         if not item_result:
             await self.send_chat_message_as_rand_user(
-                channel_name, f"Item '{item_name}' not found"
+                channel_name, f"Item '{item_name}' not found", output_to_channel_id
             )
             return
         item: ravenpy.Item = item_result[0][0]
         char_item_stuff = []
         total_count = 0
         all_characters = list(self.player_char_data.values())
-        all_characters.sort(key=lambda x: self.account_channels[x.char.twitch_id][x.char.index-1] or "")
-        all_characters.sort(key=lambda x: self.account_channels[x.char.twitch_id][x.char.index-1] == channel_id, reverse=True)
+        all_characters.sort(
+            key=lambda x: (
+                self.account_channels[x.char.twitch_id][x.char.index - 1] or ""
+            )
+        )
+        all_characters.sort(
+            key=lambda x: (
+                self.account_channels[x.char.twitch_id][x.char.index - 1] == channel_id
+            ),
+            reverse=True,
+        )
         for char_data in all_characters:
             char = char_data.char
-            channel = self.account_channels[char.twitch_id][char.index-1]
+            channel = self.account_channels[char.twitch_id][char.index - 1]
             if not channel:
                 continue
             char_item = char.get_item(item)
@@ -606,54 +806,68 @@ class ChatClient(twitchio.Client):
                 break
         if not char_item_stuff:
             await self.send_chat_message_as_rand_user(
-                channel_name, f"No {item.name} was found."
+                channel_name, f"No {item.name} was found.", output_to_channel_id
             )
             return
-        char_item_stuff.sort(key=lambda x: x['amount'], reverse=True)
-        char_item_stuff.sort(key=lambda x: x['channel_id'])
-        char_item_stuff.sort(key=lambda x: x['channel_id'] == channel_id, reverse=True)
-        
+        char_item_stuff.sort(key=lambda x: x["amount"], reverse=True)
+        char_item_stuff.sort(key=lambda x: x["channel_id"])
+        char_item_stuff.sort(key=lambda x: x["channel_id"] == channel_id, reverse=True)
+
         total_per_channel_id = {}
         for char_item in char_item_stuff:
-            if char_item['channel_id'] not in total_per_channel_id:
-                total_per_channel_id[char_item['channel_id']] = 0
-            total_per_channel_id[char_item['channel_id']] += char_item['amount']
-            
+            if char_item["channel_id"] not in total_per_channel_id:
+                total_per_channel_id[char_item["channel_id"]] = 0
+            total_per_channel_id[char_item["channel_id"]] += char_item["amount"]
+
         extended_output = []
         last_channel_id = None
         for char_item in char_item_stuff:
-            if (not total_items) and char_item['channel_id'] != channel_id:
+            if (not total_items) and char_item["channel_id"] != channel_id:
                 continue
-            if last_channel_id != char_item['channel_id']:
+            if last_channel_id != char_item["channel_id"]:
                 if last_channel_id is not None:
                     extended_output.append("")
-                last_channel_id = char_item['channel_id']
+                last_channel_id = char_item["channel_id"]
                 channel_name_ = await self.get_username(last_channel_id)
-                extended_output.append(f"{channel_name_} ({total_per_channel_id[last_channel_id]}x)")
+                extended_output.append(
+                    f"{channel_name_} ({total_per_channel_id[last_channel_id]}x)"
+                )
             if not gift_to:
-                extended_output.append(f"    {char_item['char_name']}: {char_item['amount']}x")
+                extended_output.append(
+                    f"    {char_item['char_name']}: {char_item['amount']}x"
+                )
             else:
-                extended_output.append(f"    ?say -as:{char_item['char_name']} !gift {gift_to} {item.name} {char_item['amount']}")
+                extended_output.append(
+                    f"    ?say -as:{char_item['char_name']} !gift {gift_to} {item.name} {char_item['amount']}"
+                )
         if total_items:
             pastas_url = await utils.upload_to_borkedbin("\n".join(extended_output))
             await self.send_chat_message_as_rand_user(
                 channel_name,
-                f"{total_count}x {item.name} total. {pastas_url}"
+                f"{total_count}x {item.name} total. {pastas_url}",
+                output_to_channel_id,
             )
         else:
-            if not channel_id in total_per_channel_id:
+            if channel_id not in total_per_channel_id:
                 await self.send_chat_message_as_rand_user(
-                    channel_name,
-                    f"No {item.name} here :/"
+                    channel_name, f"No {item.name} here :/", output_to_channel_id
                 )
                 return
             pastas_url = await utils.upload_to_borkedbin("\n".join(extended_output))
             await self.send_chat_message_as_rand_user(
-                channel_name, 
-                f"{total_per_channel_id[channel_id]}x {item.name} here. {pastas_url}"
+                channel_name,
+                f"{total_per_channel_id[channel_id]}x {item.name} here. {pastas_url}",
+                output_to_channel_id,
             )
 
-    async def handle_exec_as_joined(self, channel_id: str, channel_name: str, caller_username: str, text_: str):
+    async def handle_exec_as_joined(
+        self,
+        channel_id: str,
+        channel_name: str,
+        caller_username: str,
+        text_: str,
+        output_to_channel_id: str | None = None,
+    ):
         args = CommandArgs(text_)
         text_args = []
         for arg in args.args:
@@ -664,7 +878,7 @@ class ChatClient(twitchio.Client):
                     break
         text = " ".join(text_args).strip()
         sender_user = None
-        _as_user_flag = args.get_flag(['as', 'a', 'user', 'u'], case_sensitive=False)
+        _as_user_flag = args.get_flag(["as", "a", "user", "u"], case_sensitive=False)
         if _as_user_flag:
             if _as_user_flag.value:
                 sender_user = _as_user_flag.value.strip()
@@ -673,7 +887,7 @@ class ChatClient(twitchio.Client):
         if not sender_user:
             for char_data in self.player_char_data.values():
                 char = char_data.char
-                channel = self.account_channels[char.twitch_id][char.index-1]
+                channel = self.account_channels[char.twitch_id][char.index - 1]
                 if channel != channel_id:
                     continue
                 if char.user_name.lower() in RANDOM_CHAR_BLACKLIST:
@@ -682,20 +896,25 @@ class ChatClient(twitchio.Client):
                     sender_user = char.user_name
                     break
         await self.send_chat_message(
-            sender_user, channel_name, text
+            sender_user, channel_name, text, output_to_channel_id
         )
 
-    async def handle_recitems(self, channel_id: str, channel_name: str):
+    async def handle_recitems(
+        self,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         items = {}
         gift_commands = []
-        
+
         for key in self.player_char_data.keys():
             char = self.player_char_data[key].char
             recs = self.player_recommendations[key]
-            char_channel_id = self.account_channels[char.twitch_id][char.index-1]
+            char_channel_id = self.account_channels[char.twitch_id][char.index - 1]
             if char_channel_id != channel_id:
                 continue
-            
+
             for item in recs:
                 if not item:
                     continue
@@ -705,11 +924,11 @@ class ChatClient(twitchio.Client):
                 gift_commands.append(f"!gift {char.user_name} {item}")
         craft_commands = []
         resources = {}
-        
+
         for item, count in items.items():
             craft_commands.append(f"!craft {item} {count}")
         craft_commands.append("")
-            
+
         sub_items = items.copy()
         while True:
             sub_sub_items = {}
@@ -734,7 +953,7 @@ class ChatClient(twitchio.Client):
         for item, count in resources.items():
             if count > 0:
                 required_resources.append(f"{count}x {item}")
-        
+
         out_text_lines = [
             "Commands for recommended items in " + channel_name,
             "",
@@ -746,64 +965,114 @@ class ChatClient(twitchio.Client):
         ]
         text_url = await utils.upload_to_borkedbin("\n".join(out_text_lines))
         await self.send_chat_message_as_rand_user(
-            channel_name, f"Commands: {text_url}"
+            channel_name, f"Commands: {text_url}", output_to_channel_id
         )
 
     async def process_commands(self, payload: twitchio.ChatMessage):
         if payload.text[0] == "!":
-            await self.parse_chat_command(payload.text, payload.chatter.id, payload.broadcaster.id)
+            await self.parse_chat_command(
+                payload.text, payload.chatter.id, payload.broadcaster.id
+            )
             return
         await self.process_command_thing(
-            payload.text, payload.chatter.id, payload.chatter.name, payload.broadcaster.id, payload.broadcaster.name
+            payload.text,
+            payload.chatter.id,
+            payload.chatter.name,
+            payload.broadcaster.id,
+            payload.broadcaster.name,
         )
-        
-    async def process_command_thing(self, text: str, user_id: str, user_name: str, channel_id: str, channel_name: str):
+
+    async def process_command_thing(
+        self,
+        text: str,
+        user_id: str,
+        user_name: str,
+        channel_id: str,
+        channel_name: str,
+        output_to_channel_id: str | None = None,
+    ):
         prefix = "?"
         if len(text) < len(prefix) + 1 or text[0] != "?":
             return
-        spl = text[len(prefix):].split()
+        spl = text[len(prefix) :].split()
         command = spl[0].lower()
         args = spl[1:]
         if self.user_info.get(user_id, {}).get("has_elevated_permissions", False):
             match command:
                 case "sailall":
-                    await self.handle_sail(channel_id, channel_name)
+                    await self.handle_sail(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "raidall":
-                    await self.handle_raid(channel_id, channel_name)
+                    await self.handle_raid(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "sail":
                     await self.handle_exec_as_joined(
-                        channel_id, channel_name, 
-                        user_name, f"!sail {' '.join(args)}"
+                        channel_id,
+                        channel_name,
+                        user_name,
+                        f"!sail {' '.join(args)}",
+                        output_to_channel_id,
                     )
                 case "say":
                     await self.handle_exec_as_joined(
-                        channel_id, channel_name, 
-                        user_name, ' '.join(args)
+                        channel_id,
+                        channel_name,
+                        user_name,
+                        " ".join(args),
+                        output_to_channel_id,
                     )
                 case "joinall":
-                    await self.handle_joinall(channel_name)
+                    await self.handle_joinall(channel_name, output_to_channel_id)
                 case "randleave":
-                    await self.handle_random_leave(channel_id, channel_name)
+                    await self.handle_random_leave(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "undorandleave":
-                    await self.handle_undo_random_leave(channel_id, channel_name)
+                    await self.handle_undo_random_leave(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "randleaveundo":
-                    await self.handle_undo_random_leave(channel_id, channel_name)
+                    await self.handle_undo_random_leave(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "resynctest":
                     await self.resync_routine()
                 case "recitems":
-                    await self.handle_recitems(channel_id, channel_name)
+                    await self.handle_recitems(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "count":
-                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
+                    await self.handle_count_items(
+                        channel_id,
+                        channel_name,
+                        user_name,
+                        " ".join(args),
+                        output_to_channel_id,
+                    )
                 case "items":
-                    await self.handle_count_items(channel_id, channel_name, user_name, " ".join(args))
+                    await self.handle_count_items(
+                        channel_id,
+                        channel_name,
+                        user_name,
+                        " ".join(args),
+                        output_to_channel_id,
+                    )
         if user_id == "0":
             match command:
                 case "ds":
-                    await self.handle_dungeon_scroll(channel_id, channel_name)
+                    await self.handle_dungeon_scroll(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "rs":
-                    await self.handle_raid_scroll(channel_id, channel_name)
+                    await self.handle_raid_scroll(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "fs":
-                    await self.handle_ferry_scroll(channel_id, channel_name)
+                    await self.handle_ferry_scroll(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "exps":
                     now = datetime.now(timezone.utc)
                     if now > self.mult_end_time:
@@ -812,29 +1081,54 @@ class ChatClient(twitchio.Client):
                     scroll_count = 100 - self.current_mult
                     if len(args) > 0 and args[0].isdigit():
                         scroll_count = int(args[0])
-                    await self.handle_exp_scroll(channel_id, channel_name, scroll_count, user_name)
+                    await self.handle_exp_scroll(
+                        channel_id,
+                        channel_name,
+                        scroll_count,
+                        user_name,
+                        output_to_channel_id,
+                    )
                 case "scrolls":
                     get_total = False
                     if args and args[0].lower() == "all":
                         get_total = True
-                    await self.handle_count_scrolls(channel_id, channel_name, user_name, get_total)
+                    await self.handle_count_scrolls(
+                        channel_id,
+                        channel_name,
+                        user_name,
+                        get_total,
+                        output_to_channel_id,
+                    )
 
         if self.user_info.get(channel_id, {}).get("is_hosting_ravenfall", False):
             match command:
                 case "resync":
-                    await self.handle_random_relog(channel_id, channel_name)
+                    await self.handle_random_relog(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "randrelog":
-                    await self.handle_random_relog(channel_id, channel_name)
+                    await self.handle_random_relog(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "relog":
-                    await self.handle_random_relog(channel_id, channel_name)
+                    await self.handle_random_relog(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "ping":
-                    await self.handle_ping(channel_id, channel_name)
+                    await self.handle_ping(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "towndesync":
-                    await self.handle_town_desync(channel_id, channel_name)
+                    await self.handle_town_desync(
+                        channel_id, channel_name, output_to_channel_id
+                    )
                 case "desync":
-                    await self.handle_town_desync(channel_id, channel_name)
+                    await self.handle_town_desync(
+                        channel_id, channel_name, output_to_channel_id
+                    )
 
     _action_re = re.compile("^\u0001?ACTION ")
+
     async def event_message(self, payload: twitchio.ChatMessage):
         # print(f"#{payload.broadcaster.name}: {payload.chatter.name}: {payload.text}")
         # aga = self.mention_re.search(payload.text)
@@ -848,19 +1142,23 @@ class ChatClient(twitchio.Client):
             if self._action_re.match(text):
                 me = True
                 text = self._action_re.sub("", text)
-            await send_ws(json.dumps({
-                "type": "message",
-                "channel": payload.broadcaster.display_name,
-                "user": payload.chatter.display_name,
-                "text": text,
-                "user_color": color,
-                "me": me,
-                "is_broadcaster": payload.chatter.broadcaster,
-                "is_moderator": payload.chatter.moderator,
-                "is_vip": payload.chatter.vip,
-            }))
+            await send_ws(
+                json.dumps(
+                    {
+                        "type": "message",
+                        "channel": payload.broadcaster.display_name,
+                        "user": payload.chatter.display_name,
+                        "text": text,
+                        "user_color": color,
+                        "me": me,
+                        "is_broadcaster": payload.chatter.broadcaster,
+                        "is_moderator": payload.chatter.moderator,
+                        "is_vip": payload.chatter.vip,
+                    }
+                )
+            )
         await self.process_commands(payload)
-            
+
     async def event_channel_update(self, payload: twitchio.ChannelUpdate):
         channel = self.connected_channels[payload.broadcaster.id]
         channel.name = payload.broadcaster.name
@@ -868,17 +1166,21 @@ class ChatClient(twitchio.Client):
         self.send_channels.restart()
 
     async def send_system_message(self, text):
-        await send_ws(json.dumps({
-            "type": "message",
-            "channel": "__sys",
-            "user": "__sys",
-            "text": text,
-            "user_color": "000000",
-            "me": False,
-            "is_broadcaster": False,
-            "is_moderator": False,
-            "is_vip": False,
-        }))
+        await send_ws(
+            json.dumps(
+                {
+                    "type": "message",
+                    "channel": "__sys",
+                    "user": "__sys",
+                    "text": text,
+                    "user_color": "000000",
+                    "me": False,
+                    "is_broadcaster": False,
+                    "is_moderator": False,
+                    "is_vip": False,
+                }
+            )
+        )
 
     async def parse_chat_command(self, text: str, user_id: str, channel_id: str):
         username = await self.get_username(user_id)
@@ -887,7 +1189,7 @@ class ChatClient(twitchio.Client):
         args = args[1:]
         match command:
             case "join":
-                if not user_id in self.account_channels:
+                if user_id not in self.account_channels:
                     return
                 index = 1
                 if len(args) > 0:
@@ -898,7 +1200,10 @@ class ChatClient(twitchio.Client):
                             key = f"{username}_{i}"
                             if key in self.player_char_data:
                                 char_name = self.player_char_data[key].char.name
-                                if char_name and char_name.split()[0].lower() == args[0]:
+                                if (
+                                    char_name
+                                    and char_name.split()[0].lower() == args[0]
+                                ):
                                     index = i
                                     break
                         else:
@@ -908,7 +1213,7 @@ class ChatClient(twitchio.Client):
                 if index < 0:
                     return
                 if index <= len(self.account_channels[user_id]):
-                    self.account_channels[user_id][index-1] = channel_id
+                    self.account_channels[user_id][index - 1] = channel_id
                     self.save_channels()
             case "leave":
                 if user_id in self.account_channels:
@@ -919,8 +1224,14 @@ class ChatClient(twitchio.Client):
                     if index != -1:
                         self.account_channels[user_id][index] = None
                         self.save_channels()
-    
-    async def send_chat_message(self, user: str, channel: str, text: str):
+
+    async def send_chat_message(
+        self,
+        user: str,
+        channel: str,
+        text: str,
+        output_to_channel_id: str | None = None,
+    ):
         if user.lower() == "potatbotat":
             text = "-pb " + text
             user = "abrokecube"
@@ -930,16 +1241,18 @@ class ChatClient(twitchio.Client):
         elif user.lower() == "streamelements":
             text = "!se " + text
             user = "abrokecube"
-        if not channel.lower() in self.username_to_id:
+        if channel.lower() not in self.username_to_id:
             await self.send_system_message(f"Not joined in {channel}")
             return
         channel_id = self.username_to_id[channel.lower()]
-        if not user.lower() in self.username_to_id:
+        if user.lower() not in self.username_to_id:
             await self.send_system_message(f"{user} is not logged in!")
             return
         user_id = self.username_to_id[user.lower()]
         try:
-            await self.create_partialuser(channel_id).send_message(text, user_id, token_for=user_id)
+            await self.create_partialuser(
+                output_to_channel_id or channel_id
+            ).send_message(text, user_id, token_for=user_id)
         except twitchio.MessageRejectedError as e:
             await self.send_system_message(e.message)
         else:
@@ -952,12 +1265,9 @@ class ChatClient(twitchio.Client):
         for idx, channel_key in enumerate(self.connected_channels.keys()):
             channel = self.connected_channels[channel_key]
             ch_dict = channel.__dict__.copy()
-            ch_dict['color'] = COLORS[idx % len(COLORS)]
+            ch_dict["color"] = COLORS[idx % len(COLORS)]
             data.append(ch_dict)
-        await send_ws(json.dumps({
-            "type": "channels",
-            "data": data
-        }))
+        await send_ws(json.dumps({"type": "channels", "data": data}))
 
     @property
     def is_online(self) -> bool:
@@ -970,12 +1280,16 @@ class ChatClient(twitchio.Client):
         #     await ws.ping()
         # except:
         #     return
-            
-        await send_ws(json.dumps({
-            "type": "users",
-            "data": [self.id_to_username[x] for x in self.ravenfall_users]
-        }))
-        
+
+        await send_ws(
+            json.dumps(
+                {
+                    "type": "users",
+                    "data": [self.id_to_username[x] for x in self.ravenfall_users],
+                }
+            )
+        )
+
         while True:
             try:
                 mult = await self.rf_api.get_global_mult()
@@ -990,18 +1304,22 @@ class ChatClient(twitchio.Client):
                 logging.error(f"Error in fetch_rf_api: {str(e)}")
                 await asyncio.sleep(5)
         mult_event = mult.event_name or ""
-        await send_ws(json.dumps({
-            "type": "multiplier",
-            "multiplier": mult.multiplier,
-            "event": mult_event,
-            "start": mult.start_time.timestamp(),
-            "end": mult.end_time.timestamp()
-        }))
+        await send_ws(
+            json.dumps(
+                {
+                    "type": "multiplier",
+                    "multiplier": mult.multiplier,
+                    "event": mult_event,
+                    "start": mult.start_time.timestamp(),
+                    "end": mult.end_time.timestamp(),
+                }
+            )
+        )
         self.current_mult = mult.multiplier
         self.mult_end_time = mult.end_time
         group_size = 2
         users_grouped = [
-            self.ravenfall_users[i:i+group_size] 
+            self.ravenfall_users[i : i + group_size]
             for i in range(0, len(self.ravenfall_users), group_size)
         ]
         desync_samples = []
@@ -1010,26 +1328,28 @@ class ChatClient(twitchio.Client):
             out_data = []
             # results = await get_characters(self.rf_api, user_id)
             results = await asyncio.gather(
-                *[get_characters(self.rf_api, a) for a in user_id_group], return_exceptions=True
+                *[get_characters(self.rf_api, a) for a in user_id_group],
+                return_exceptions=True,
             )
             result = [
-                item 
-                for sublist in results if not isinstance(sublist, Exception)
+                item
+                for sublist in results
+                if not isinstance(sublist, Exception)
                 for item in sublist
             ]
-            now = datetime.now(timezone.utc) 
-            
+            now = datetime.now(timezone.utc)
+
             for char in result:
                 if char is None:
                     continue
                 char_key = f"{char.user_name}_{char.index}"
-                if not char_key in self.player_char_data:
+                if char_key not in self.player_char_data:
                     self.player_char_data[char_key] = CharData(char)
                 char_data_obj = self.player_char_data[char_key]
                 char_data_obj.char = char
                 char_data_obj.last_update_time = now
                 progress = 0
-                
+
                 if char.training:
                     stat = char.training_stats[0]
                     progress = stat.level_exp / stat.total_exp_for_level
@@ -1045,15 +1365,15 @@ class ChatClient(twitchio.Client):
                         else:
                             stat_text_str = f"{langstuff.skill_contractions[stat.skill]} {stat.level}"
                         stat_text.append(stat_text_str)
-                    training = ', '.join(stat_text)
+                    training = ", ".join(stat_text)
                 else:
                     training = "Not training!"
-                    
+
                 where_island = ""
                 if char.island:
                     where_island = f"at {char.island.name.capitalize()}"
                 elif char.destination == Islands.Ferry:
-                    where_island = f"on the ferry"
+                    where_island = "on the ferry"
                 else:
                     where_island = "sailing the seas"
 
@@ -1064,11 +1384,11 @@ class ChatClient(twitchio.Client):
                     where = "in the arena"
                 if char.in_dungeon:
                     where = "in a dungeon"
-                
+
                 rest = ""
                 if char.in_onsen:
                     rest = "resting"
-                if char.rested_time.total_seconds() == 2*60*60:
+                if char.rested_time.total_seconds() == 2 * 60 * 60:
                     rest = "rested"
 
                 captain = ""
@@ -1077,16 +1397,20 @@ class ChatClient(twitchio.Client):
 
                 destination = ""
                 if char.waiting_for_ferry:
-                    destination = f"waiting for ferry"
+                    destination = "waiting for ferry"
 
                 target_item = ""
                 if char.target_item:
                     item = char.target_item
-                    target_item =  f"{item.amount}x {item.item.name}"
-                    
-                text1 = utils.capitalize_first_letter(utils.strjoin(' - ', training, target_item))
-                text2 = utils.capitalize_first_letter(utils.strjoin(' ', where, where_island, destination, captain))
-                channel_id = self.account_channels[char.twitch_id][char.index-1]
+                    target_item = f"{item.amount}x {item.item.name}"
+
+                text1 = utils.capitalize_first_letter(
+                    utils.strjoin(" - ", training, target_item)
+                )
+                text2 = utils.capitalize_first_letter(
+                    utils.strjoin(" ", where, where_island, destination, captain)
+                )
+                channel_id = self.account_channels[char.twitch_id][char.index - 1]
                 channel = None
                 color = "000000"
                 if channel_id is not None:
@@ -1107,37 +1431,53 @@ class ChatClient(twitchio.Client):
                 name = char.name
                 if char.name == str(char.index):
                     name = f"Character {char.index}"
-                rest_progress = char.rested_time.total_seconds() / (2*60*60)
-                
+                rest_progress = char.rested_time.total_seconds() / (2 * 60 * 60)
+
                 status = ""
                 char_is_offline = False
                 desync_s = None
-                if char.estimated_level_time and char.exp_per_hour > 0 and char.training_stats[0].level < 999:
-                    training_time_server = char.estimated_level_time - char.time_recieved
+                if (
+                    char.estimated_level_time
+                    and char.exp_per_hour > 0
+                    and char.training_stats[0].level < 999
+                ):
+                    training_time_server = (
+                        char.estimated_level_time - char.time_recieved
+                    )
                     closest_stat = char.training_stats[0]
-                    exp_to_next_level = closest_stat.total_exp_for_level-closest_stat.level_exp
-                    training_time_exp = timedelta(seconds=(exp_to_next_level) / (char.exp_per_hour/60/60))
-                    train_time_diff = (training_time_exp - training_time_server)
+                    exp_to_next_level = (
+                        closest_stat.total_exp_for_level - closest_stat.level_exp
+                    )
+                    training_time_exp = timedelta(
+                        seconds=(exp_to_next_level) / (char.exp_per_hour / 60 / 60)
+                    )
+                    train_time_diff = training_time_exp - training_time_server
                     desync_s = train_time_diff.total_seconds()
                     char_data_obj.desync_s = desync_s
                     desync_samples.append(desync_s)
-                    if not channel_id in desync_samples_per_channel:
+                    if channel_id not in desync_samples_per_channel:
                         desync_samples_per_channel[channel_id] = []
                     desync_samples_per_channel[channel_id].append(desync_s)
-                    char_is_offline = train_time_diff.total_seconds() > 60*3  # 3 minutes
+                    char_is_offline = (
+                        train_time_diff.total_seconds() > 60 * 3
+                    )  # 3 minutes
                 if char_is_offline:
                     status = "offline"
-                
+
                 auto_statuses = []
                 if char.auto_join_dungeon_count == math.inf:
                     auto_statuses.append("Auto dungeons")
                 elif char.auto_join_dungeon_count > 0:
-                    auto_statuses.append(f"{utils.pl(char.auto_join_dungeon_count, 'dungeons')}")
-                    
+                    auto_statuses.append(
+                        f"{utils.pl(char.auto_join_dungeon_count, 'dungeons')}"
+                    )
+
                 if char.auto_join_raid_count == math.inf:
                     auto_statuses.append("Auto raids")
                 elif char.auto_join_raid_count > 0:
-                    auto_statuses.append(f"{utils.pl(char.auto_join_raid_count, 'raids')}")
+                    auto_statuses.append(
+                        f"{utils.pl(char.auto_join_raid_count, 'raids')}"
+                    )
 
                 if char.is_auto_resting and (char.auto_rest_start is not None):
                     if char.auto_rest_start != 0 or char.auto_rest_target != 120:
@@ -1158,30 +1498,40 @@ class ChatClient(twitchio.Client):
                 if char.exp_per_hour > 0 and char.training:
                     # closest_stat = min(*char.training_stats, key=lambda x: x.total_exp_for_level-x.level_exp)
                     closest_stat = char.training_stats[0]
-                    exp_to_next_level = closest_stat.total_exp_for_level-closest_stat.level_exp
-                    training_time_exp = timedelta(seconds=(exp_to_next_level) / (char.exp_per_hour/60/60))
+                    exp_to_next_level = (
+                        closest_stat.total_exp_for_level - closest_stat.level_exp
+                    )
+                    training_time_exp = timedelta(
+                        seconds=(exp_to_next_level) / (char.exp_per_hour / 60 / 60)
+                    )
                 else:
                     training_time_exp = timedelta(weeks=9999)
                 s = utils.TimeSize.SMALL
                 # train_time_format = utils.format_timedelta(training_time_server, s) + '/' + utils.format_timedelta(training_time_exp, s)
-                train_time_diff = (training_time_exp - training_time_server)
-                char_is_offline = train_time_diff.total_seconds() > 60*3  # 3 minutes
-                if char.training in (Skills.Attack, Skills.Defense, Skills.Strength) and not (char.in_raid or char.in_dungeon):
+                train_time_diff = training_time_exp - training_time_server
+                char_is_offline = train_time_diff.total_seconds() > 60 * 3  # 3 minutes
+                if char.training in (
+                    Skills.Attack,
+                    Skills.Defense,
+                    Skills.Strength,
+                ) and not (char.in_raid or char.in_dungeon):
                     training_time_exp /= combat_mult
                     training_time_server /= combat_mult
                 # train_time_format = utils.format_timedelta(training_time_server, s)
                 train_time_format = utils.format_timedelta(training_time_exp, s)
                 if char.island and not char.in_onsen:
                     if char_is_offline:
-                        train_time = f""
+                        train_time = ""
                     elif now < train_end_time:
-                        if training_time_server.total_seconds() > 60*60*24*100:  # 99 days
-                            train_time = f"Level in ∞"
+                        if (
+                            training_time_server.total_seconds() > 60 * 60 * 24 * 100
+                        ):  # 99 days
+                            train_time = "Level in ∞"
                         else:
                             train_time = f"Level in {train_time_format}"
                     else:
-                        train_time = f"Level in ---"
-                        
+                        train_time = "Level in ---"
+
                 exp_per_hour = ""
                 if train_time:
                     exp_per_hour = f"{char.exp_per_hour:,} exp/h"
@@ -1189,7 +1539,7 @@ class ChatClient(twitchio.Client):
                 potion_statuses = []
                 for status_effect in char.status_effects:
                     potion_statuses.append(
-                        f"{langstuff.status_effect_names[status_effect.effect]} "\
+                        f"{langstuff.status_effect_names[status_effect.effect]} "
                         f"+{status_effect.amount:.1%} for {utils.format_seconds(status_effect.time_left)}"
                     )
 
@@ -1197,57 +1547,99 @@ class ChatClient(twitchio.Client):
                 if char.rested_time.total_seconds() > 0:
                     rested_time = f"{utils.format_timedelta(char.rested_time)} rested"
                 coins = f"{char.coins:,} coins"
-                                
+
                 rec_island = ""
                 if char.training and not char.training == Skills.Sailing:
                     if char.training in (Skills.All, Skills.Health):
-                        skill = max(char.attack, char.defense, char.strength, key=lambda x: x.level)
+                        skill = max(
+                            char.attack,
+                            char.defense,
+                            char.strength,
+                            key=lambda x: x.level,
+                        )
                     else:
                         skill = char.get_skill(char.training)
-                        
-                    skill_is_maxed = skill.level == 999 and (skill.level_exp / skill.total_exp_for_level) > 0.99                   
+
+                    skill_is_maxed = (
+                        skill.level == 999
+                        and (skill.level_exp / skill.total_exp_for_level) > 0.99
+                    )
                     is_training_combat = skill.skill in ravenpy.fighting_skills
                     recommended_island_min = ravenpy.get_island_for_level(skill.level)
                     recommended_island_max = recommended_island_min
                     if is_training_combat and skill.level < char.combat_level:
-                        recommended_island_max = max(ravenpy.get_island_for_level(char.combat_level), recommended_island_min, key=lambda x: x.value)
-                    
-                    if (not skill_is_maxed) and ((not char.island or char.island.value > recommended_island_max.value) or char.island.value < recommended_island_min.value):
-                        rec_island = f"Sail to {recommended_island_max.name.capitalize()}"
-                
+                        recommended_island_max = max(
+                            ravenpy.get_island_for_level(char.combat_level),
+                            recommended_island_min,
+                            key=lambda x: x.value,
+                        )
+
+                    if (not skill_is_maxed) and (
+                        (
+                            not char.island
+                            or char.island.value > recommended_island_max.value
+                        )
+                        or char.island.value < recommended_island_min.value
+                    ):
+                        rec_island = (
+                            f"Sail to {recommended_island_max.name.capitalize()}"
+                        )
+
                 rec_items = []
                 short_rec_armor = []
                 rec_armor = ""
                 rec_armor_mat = ravenpy.get_material_for_level(char.defense.level)
                 eq = char.equipment
                 armors = [
-                    (eq.helmet, 'Helmet'),
-                    (eq.chest, 'Chest'),
-                    (eq.gloves, 'Gloves'),
-                    (eq.leggings, 'Leggings'),
-                    (eq.boots, 'Boots'),
+                    (eq.helmet, "Helmet"),
+                    (eq.chest, "Chest"),
+                    (eq.gloves, "Gloves"),
+                    (eq.leggings, "Leggings"),
+                    (eq.boots, "Boots"),
                 ]
-                if not eq.weapon or eq.weapon.item.type in (ravenpy.ItemTypes.OneHandedSword, ravenpy.ItemTypes.OneHandedAxe):
-                    armors.append((eq.shield, 'Shield'))
+                if not eq.weapon or eq.weapon.item.type in (
+                    ravenpy.ItemTypes.OneHandedSword,
+                    ravenpy.ItemTypes.OneHandedAxe,
+                ):
+                    armors.append((eq.shield, "Shield"))
                 for piece, short_l in armors:
                     if (not piece) or piece.item.material != rec_armor_mat:
-                        in_inventory = char.get_item(f"{langstuff.material_names[rec_armor_mat]} {short_l}")
+                        in_inventory = char.get_item(
+                            f"{langstuff.material_names[rec_armor_mat]} {short_l}"
+                        )
                         if in_inventory:
                             short_rec_armor.append("*")
                         else:
-                            rec_items.append(f"{langstuff.material_names[rec_armor_mat]} {short_l}")
+                            rec_items.append(
+                                f"{langstuff.material_names[rec_armor_mat]} {short_l}"
+                            )
                             short_rec_armor.append(short_l[0])
                         rec_armor = f"{langstuff.material_names[rec_armor_mat]} set"
                     else:
                         short_rec_armor.append("-")
                 if rec_armor:
-                    rec_armor = utils.strjoin(" ", rec_armor, utils.strenclose("(", ")", "", utils.strjoin('',*short_rec_armor)))
+                    rec_armor = utils.strjoin(
+                        " ",
+                        rec_armor,
+                        utils.strenclose(
+                            "(", ")", "", utils.strjoin("", *short_rec_armor)
+                        ),
+                    )
                     has_armor_recs = True
 
                 rec_weapon = ""
-                if Skills.Health in (char.dungeon_combat_style, char.raid_combat_style) \
-                or char.training in (Skills.All, Skills.Attack, Skills.Defense, Skills.Strength, Skills.Health) \
-                or eq.weapon:
+                if (
+                    Skills.Health in (char.dungeon_combat_style, char.raid_combat_style)
+                    or char.training
+                    in (
+                        Skills.All,
+                        Skills.Attack,
+                        Skills.Defense,
+                        Skills.Strength,
+                        Skills.Health,
+                    )
+                    or eq.weapon
+                ):
                     rec_weapon_mat = ravenpy.get_material_for_level(char.attack.level)
                     inv_check = []
                     if not eq.weapon:
@@ -1276,20 +1668,41 @@ class ChatClient(twitchio.Client):
                             rec_items.append(rec_weapon)
 
                 rec_staff = ""
-                if Skills.Healing in (char.dungeon_combat_style, char.raid_combat_style, char.training)\
-                or Skills.Magic in (char.dungeon_combat_style, char.raid_combat_style, char.training)\
-                or eq.staff:
-                    rec_mat = ravenpy.get_material_for_level(max(char.healing.level, char.magic.level))
+                if (
+                    Skills.Healing
+                    in (
+                        char.dungeon_combat_style,
+                        char.raid_combat_style,
+                        char.training,
+                    )
+                    or Skills.Magic
+                    in (
+                        char.dungeon_combat_style,
+                        char.raid_combat_style,
+                        char.training,
+                    )
+                    or eq.staff
+                ):
+                    rec_mat = ravenpy.get_material_for_level(
+                        max(char.healing.level, char.magic.level)
+                    )
                     if (not eq.staff) or eq.staff.item.material != rec_mat:
                         rec_staff = f"{langstuff.material_names[rec_mat]} staff"
                         if char.get_item(f"{langstuff.material_names[rec_mat]} Staff"):
                             rec_staff += "*"
                         else:
                             rec_items.append(rec_staff)
-                
+
                 rec_bow = ""
-                if Skills.Ranged in (char.dungeon_combat_style, char.raid_combat_style, char.training)\
-                or eq.bow:
+                if (
+                    Skills.Ranged
+                    in (
+                        char.dungeon_combat_style,
+                        char.raid_combat_style,
+                        char.training,
+                    )
+                    or eq.bow
+                ):
                     rec_mat = ravenpy.get_material_for_level(char.ranged.level)
                     if (not eq.bow) or eq.bow.item.material != rec_mat:
                         rec_bow = f"{langstuff.material_names[rec_mat]} bow"
@@ -1314,49 +1727,62 @@ class ChatClient(twitchio.Client):
                                 f"{stat.skill.name} {stat.level} [+{plus_levels:,}]"
                             )
                         else:
-                            stats_str_build.append(
-                                f"{stat.skill.name} {stat.level}"
-                            )
+                            stats_str_build.append(f"{stat.skill.name} {stat.level}")
                 stats_str = "\n".join(stats_str_build)
-  
+
                 training_skill_is_maxed = False
                 if char.training:
                     if char.training in (Skills.All, Skills.Health):
-                        t_skill = min(char.attack, char.defense, char.strength, key=lambda x: x.level)
+                        t_skill = min(
+                            char.attack,
+                            char.defense,
+                            char.strength,
+                            key=lambda x: x.level,
+                        )
                     else:
                         t_skill = char.get_skill(char.training)
-                    training_skill_is_maxed = t_skill.level == 999 and (t_skill.level_exp / t_skill.total_exp_for_level) > 0.99                   
+                    training_skill_is_maxed = (
+                        t_skill.level == 999
+                        and (t_skill.level_exp / t_skill.total_exp_for_level) > 0.99
+                    )
 
                 status_color = "#000000"
-                if char.exp_per_hour == 0 and not char.in_onsen and not char.training == ravenpy.Skills.Sailing:
+                if (
+                    char.exp_per_hour == 0
+                    and not char.in_onsen
+                    and not char.training == ravenpy.Skills.Sailing
+                ):
                     status_color = "#d62411"  # red
                 if training_skill_is_maxed:
                     status_color = "#0c5e36"
-                if rec_island: 
+                if rec_island:
                     status_color = "#ff8426"  # orange
-                if char.rested_time.total_seconds() == 2*60*60:
+                if char.rested_time.total_seconds() == 2 * 60 * 60:
                     status_color = "#68aed4"  # blue
-                    
+
                 tooltip_text = utils.strjoin(
-                    '\n\n',
-                    utils.strjoin('\n',
+                    "\n\n",
+                    utils.strjoin(
+                        "\n",
                         text1 if len(text1) > 25 else "",
-                        text2 if len(text2) > 25 else ""
+                        text2 if len(text2) > 25 else "",
                     ),
                     rec_island,
-                    utils.strjoin('\n',
+                    utils.strjoin(
+                        "\n",
                         rec_armor,
                         rec_weapon,
                         rec_staff,
                         rec_bow,
                     ),
-                    utils.strjoin('\n',
+                    utils.strjoin(
+                        "\n",
                         train_time,
                         exp_per_hour,
                         rested_time,
                     ),
-                    utils.strjoin('\n', *auto_statuses),
-                    utils.strjoin('\n', *potion_statuses),
+                    utils.strjoin("\n", *auto_statuses),
+                    utils.strjoin("\n", *potion_statuses),
                     stats_str,
                     coins,
                 )
@@ -1377,28 +1803,25 @@ class ChatClient(twitchio.Client):
                     "tooltip": tooltip_text,
                     "train_end_time": (now + training_time_exp).timestamp(),
                     "color": color,
-                    "status_color": status_color
+                    "status_color": status_color,
                     # "train_end_time": char.estimated_level_time.timestamp()
                 }
                 out_data.append(aga)
-                
-            await send_ws(json.dumps({
-                "type": "update_chars",
-                "data": out_data
-            }))
+
+            await send_ws(json.dumps({"type": "update_chars", "data": out_data}))
 
         desync_samples.sort()
-        sample_trim = int(round(len(desync_samples) * .2))
+        sample_trim = int(round(len(desync_samples) * 0.2))
         if sample_trim > 0:
             desync_samples = desync_samples[sample_trim:-sample_trim]
         if len(desync_samples) == 0:
             desync_samples.append(0)
         avg_desync = sum(desync_samples) / len(desync_samples)
-        
+
         self.desync_per_channel_id.clear()
         for channel_id, samples in desync_samples_per_channel.items():
             samples.sort()
-            sample_trim = int(round(len(samples) * .2))
+            sample_trim = int(round(len(samples) * 0.2))
             if sample_trim > 0:
                 samples = samples[sample_trim:-sample_trim]
             if len(samples) == 0:
@@ -1408,50 +1831,52 @@ class ChatClient(twitchio.Client):
         self.desync_last_update_time = time.time()
         # with open("desync.csv", "a") as f:
         #     f.write(f"{time.time()},{avg_desync}\n")
-        await send_ws(json.dumps({
-            "type": "update_desync",
-            "seconds": avg_desync
-        }))
-    
+        await send_ws(json.dumps({"type": "update_desync", "seconds": avg_desync}))
+
     @routines.routine(delta=timedelta(minutes=2), wait_first=True)
     async def resync_routine(self):
         if time.time() - self.desync_last_update_time > 300:
             print("Desync data is too old! Restarting fetch_rf_api...")
             self.fetch_rf_api.restart()
             return
-   
+
 
 class CommandServer:
-    def __init__(self, chat_client: 'ChatClient', host: str = '0.0.0.0', port: int = 8080):
+    def __init__(
+        self, chat_client: "ChatClient", host: str = "0.0.0.0", port: int = 8080
+    ):
         self.chat_client = chat_client
         self.host = host
         self.port = port
         self.app = web.Application()
-        self.app.add_routes([
-            web.post('/command', self.handle_command),
-            web.post('/track_item_use', self.handle_track_item_use),
-            web.post('/track_coin_use', self.handle_track_coin_use),
-            web.get('/get_desync', self.handle_get_desync),
-            web.get('/get_total_item_count', self.handle_get_total_item_count),
-            web.get('/get_char_data', self.handle_get_chars_data),
-            web.get('/get_char_coins/{channel_id}', self.handle_get_chars_coins),
-            web.get('/get_char_items/{channel_id}', self.handle_get_chars_items),
-            web.get('/get_scrolls/{channel_id}', self.handle_get_scroll_count),
-        ])
+        self.app.add_routes(
+            [
+                web.post("/command", self.handle_command),
+                web.post("/track_item_use", self.handle_track_item_use),
+                web.post("/track_coin_use", self.handle_track_coin_use),
+                web.get("/get_desync", self.handle_get_desync),
+                web.get("/get_total_item_count", self.handle_get_total_item_count),
+                web.get("/get_char_data", self.handle_get_chars_data),
+                web.get("/get_char_coins/{channel_id}", self.handle_get_chars_coins),
+                web.get("/get_char_items/{channel_id}", self.handle_get_chars_items),
+                web.get("/get_scrolls/{channel_id}", self.handle_get_scroll_count),
+            ]
+        )
 
     async def handle_command(self, request: web.Request):
         try:
             data = await request.json()
-            text = data.get('text', '')
-            user_id = data.get('user_id', '')
-            user_name = data.get('user_name', 'http_client')
-            channel_id = data.get('channel_id', '')
-            channel_name = data.get('channel_name', '')
+            text = data.get("text", "")
+            user_id = data.get("user_id", "")
+            user_name = data.get("user_name", "http_client")
+            channel_id = data.get("channel_id", "")
+            channel_name = data.get("channel_name", "")
+            output_to_channel_id = data.get("output_to_channel_id")
 
             if not all([text, user_id, channel_id, channel_name]):
                 return web.json_response(
-                    {'status': 'error', 'message': 'Missing required fields'},
-                    status=400
+                    {"status": "error", "message": "Missing required fields"},
+                    status=400,
                 )
 
             await self.chat_client.process_command_thing(
@@ -1459,24 +1884,22 @@ class CommandServer:
                 user_id=user_id,
                 user_name=user_name,
                 channel_id=channel_id,
-                channel_name=channel_name
+                channel_name=channel_name,
+                output_to_channel_id=output_to_channel_id,
             )
-            return web.json_response({'status': 'success'})
+            return web.json_response({"status": "success"})
 
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
-    
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
+
     async def handle_track_item_use(self, request: web.Request):
         try:
             data = await request.json()
-            user_name: str = data['user_name']
-            char_index: int = data['char_index']
-            item_id: str = data['item_id']
-            amount: int = data['amount']
+            user_name: str = data["user_name"]
+            char_index: int = data["char_index"]
+            item_id: str = data["item_id"]
+            amount: int = data["amount"]
             for char in self.chat_client.player_char_data.values():
                 name_match = char.char.user_name.lower() == user_name.lower()
                 index_match = char.char.index == char_index
@@ -1491,19 +1914,16 @@ class CommandServer:
                         if amount <= 0:
                             break
                     break
-            return web.json_response({'status': 'success'})
+            return web.json_response({"status": "success"})
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     async def handle_track_coin_use(self, request: web.Request):
         try:
             data = await request.json()
-            user_name: str = data['user_name']
-            amount: int = data['amount']
+            user_name: str = data["user_name"]
+            amount: int = data["amount"]
             hit_count = 0
             for char in self.chat_client.player_char_data.values():
                 name_match = char.char.user_name.lower() == user_name.lower()
@@ -1512,13 +1932,10 @@ class CommandServer:
                     hit_count += 1
                 if hit_count == 3:
                     break
-            return web.json_response({'status': 'success'})
+            return web.json_response({"status": "success"})
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     async def handle_get_desync(self, request):
         try:
@@ -1527,40 +1944,48 @@ class CommandServer:
             desync_last_update_time: datetime | None = None
             for char_data in self.chat_client.player_char_data.values():
                 if char_data.desync_s is not None:
-                    if desync_last_update_time is None or char_data.last_update_time > desync_last_update_time:
+                    if (
+                        desync_last_update_time is None
+                        or char_data.last_update_time > desync_last_update_time
+                    ):
                         desync_last_update_time = char_data.last_update_time
 
             for char_data in self.chat_client.player_char_data.values():
                 if char_data.desync_s is not None:
-                    if not char_data.channel_id in channel_samples:
+                    if char_data.channel_id not in channel_samples:
                         channel_samples[char_data.channel_id] = []
-                    if desync_last_update_time is not None and desync_last_update_time - char_data.last_update_time > timedelta(minutes=2):
+                    if (
+                        desync_last_update_time is not None
+                        and desync_last_update_time - char_data.last_update_time
+                        > timedelta(minutes=2)
+                    ):
                         continue
                     channel_samples[char_data.channel_id].append(char_data.desync_s)
 
             desync_per_channel_id: Dict[str, float] = {}
             for channel_id, samples in channel_samples.items():
                 samples.sort()
-                sample_trim = int(round(len(samples) * .2))
+                sample_trim = int(round(len(samples) * 0.2))
                 if sample_trim > 0:
                     samples = samples[sample_trim:-sample_trim]
                 if len(samples) == 0:
                     samples.append(0)
                 desync_per_channel_id[channel_id] = sum(samples) / len(samples)
-            return web.json_response({
-                "status": "success",
-                "data": {
-                    "towns": desync_per_channel_id,
-                    "last_updated": desync_last_update_time.timestamp() if desync_last_update_time is not None else 0
+            return web.json_response(
+                {
+                    "status": "success",
+                    "data": {
+                        "towns": desync_per_channel_id,
+                        "last_updated": desync_last_update_time.timestamp()
+                        if desync_last_update_time is not None
+                        else 0,
+                    },
                 }
-            })
+            )
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
-            
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
+
     async def handle_get_total_item_count(self, request):
         try:
             channel_total_item_count: Dict[str, int] = {}
@@ -1571,18 +1996,17 @@ class CommandServer:
                     channel_total_item_count[char_data.channel_id] = 0
                 for item in char_data.char.items:
                     channel_total_item_count[char_data.channel_id] += item.amount
-            return web.json_response({
-                "status": "success",
-                "data": {
-                    "towns": channel_total_item_count,
+            return web.json_response(
+                {
+                    "status": "success",
+                    "data": {
+                        "towns": channel_total_item_count,
+                    },
                 }
-            })
+            )
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     async def handle_get_chars_data(self, request):
         try:
@@ -1593,36 +2017,31 @@ class CommandServer:
                 total_item_count = 0
                 for item in char_data.char.items:
                     total_item_count += item.amount
-                char_info.append({
-                    "name": char_data.char.name,
-                    "index": char_data.char.index,
-                    "user_name": char_data.char.user_name,
-                    "id": char_data.char.char_id,
-                    "channel_id": char_data.channel_id,
-                    "channel_name": char_data.channel_name,
-                    "desync_s": char_data.desync_s,
-                    "last_update_time": char_data.last_update_time.timestamp(),
-                    "recommendations": char_data.recommendations,
-                    "total_item_count": total_item_count,
-                })
-            return web.json_response({
-                "status": "success",
-                "data": char_info
-            })
+                char_info.append(
+                    {
+                        "name": char_data.char.name,
+                        "index": char_data.char.index,
+                        "user_name": char_data.char.user_name,
+                        "id": char_data.char.char_id,
+                        "channel_id": char_data.channel_id,
+                        "channel_name": char_data.channel_name,
+                        "desync_s": char_data.desync_s,
+                        "last_update_time": char_data.last_update_time.timestamp(),
+                        "recommendations": char_data.recommendations,
+                        "total_item_count": total_item_count,
+                    }
+                )
+            return web.json_response({"status": "success", "data": char_info})
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
-    
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
+
     async def handle_get_chars_coins(self, request: web.Request):
         try:
-            channel_id = request.match_info.get('channel_id', '')
+            channel_id = request.match_info.get("channel_id", "")
             if not channel_id:
                 return web.json_response(
-                    {'status': 'error', 'message': 'Missing channel_id'},
-                    status=400
+                    {"status": "error", "message": "Missing channel_id"}, status=400
                 )
             out_data = []
             for char_data in self.chat_client.player_char_data.values():
@@ -1631,75 +2050,70 @@ class CommandServer:
                         {
                             "twitch_id": char_data.char.twitch_id,
                             "user_name": char_data.char.user_name,
-                            "coins": char_data.char.coins
+                            "coins": char_data.char.coins,
                         }
                     )
-            return web.json_response({
-                "status": "success",
-                "data": out_data
-            })
+            return web.json_response({"status": "success", "data": out_data})
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     async def handle_get_chars_items(self, request: web.Request):
         try:
-            channel_id = request.match_info.get('channel_id', '')
+            channel_id = request.match_info.get("channel_id", "")
             if not channel_id:
                 return web.json_response(
-                    {'status': 'error', 'message': 'Missing channel_id'},
-                    status=400
+                    {"status": "error", "message": "Missing channel_id"}, status=400
                 )
             out_data = []
             for char_data in self.chat_client.player_char_data.values():
                 if char_data.channel_id == channel_id:
                     char_items = []
                     for item in char_data.char.items:
-                        char_items.append({
-                            "id": item.item.id,
-                            "amount": item.amount,
-                            "equipped": item.equipped,
-                            "soulbound": item.soulbound,
-                        })
+                        char_items.append(
+                            {
+                                "id": item.item.id,
+                                "amount": item.amount,
+                                "equipped": item.equipped,
+                                "soulbound": item.soulbound,
+                            }
+                        )
                     out_data.append(
                         {
                             "twitch_id": char_data.char.twitch_id,
                             "user_name": char_data.char.user_name,
                             "char_index": char_data.char.index,
-                            "items": char_items
+                            "items": char_items,
                         }
                     )
-            return web.json_response({
-                "status": "success",
-                "data": out_data
-            })
+            return web.json_response({"status": "success", "data": out_data})
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
-            
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
+
     async def handle_get_scroll_count(self, request: web.Request):
         try:
-            channel_id = request.match_info.get('channel_id', '')
+            channel_id = request.match_info.get("channel_id", "")
             if not channel_id:
                 return web.json_response(
-                    {'status': 'error', 'message': 'Missing channel_id'},
-                    status=400
+                    {"status": "error", "message": "Missing channel_id"}, status=400
                 )
             channel_scroll_counts: dict[str, int] = {}
             total_scroll_counts: dict[str, int] = {}
-            scroll_names = ("Dungeon Scroll", "Raid Scroll", "Exp Multiplier Scroll", "Ferry Scroll")
+            scroll_names = (
+                "Dungeon Scroll",
+                "Raid Scroll",
+                "Exp Multiplier Scroll",
+                "Ferry Scroll",
+            )
             for a in scroll_names:
                 channel_scroll_counts[a] = 0
                 total_scroll_counts[a] = 0
             for char_data in self.chat_client.player_char_data.values():
                 char = char_data.char
-                channel = self.chat_client.account_channels[char.twitch_id][char.index-1]
+                channel = self.chat_client.account_channels[char.twitch_id][
+                    char.index - 1
+                ]
                 if not channel:
                     continue
                 dscroll = char.get_item(ravenpy.Items.DungeonScroll)
@@ -1707,22 +2121,17 @@ class CommandServer:
                 expscroll = char.get_item(ravenpy.Items.ExpMultiplierScroll)
                 fscroll = char.get_item("Ferry Scroll")
                 for item in (dscroll, rscroll, expscroll, fscroll):
-                    if not item: 
+                    if not item:
                         continue
                     total_scroll_counts[item.item.name] += item.amount
                     if channel == channel_id:
                         channel_scroll_counts[item.item.name] += item.amount
-            return web.json_response({
-                "channel": channel_scroll_counts,
-                "total": total_scroll_counts
-            })
+            return web.json_response(
+                {"channel": channel_scroll_counts, "total": total_scroll_counts}
+            )
         except Exception as e:
             LOGGER.error(f"Error processing command: {str(e)}")
-            return web.json_response(
-                {'status': 'error', 'message': str(e)},
-                status=500
-            )
-
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     async def start(self):
         runner = web.AppRunner(self.app)
@@ -1735,10 +2144,14 @@ class CommandServer:
 rfapi: ravenpy.RavenNest
 twitch_client: ChatClient
 command_server: CommandServer
+
+
 async def main() -> None:
     # Setup logging, this is optional, however a nice to have...
     twitchio.utils.setup_logging(level=logging.INFO)
-    rfapi = ravenpy.RavenNest(os.getenv("RAVENFALL_API_USER"), os.getenv("RAVENFALL_API_PASS"))
+    rfapi = ravenpy.RavenNest(
+        os.getenv("RAVENFALL_API_USER"), os.getenv("RAVENFALL_API_PASS")
+    )
     if not DISABLE_INTEGRATIONS:
         await rfapi.login()
 
@@ -1747,14 +2160,18 @@ async def main() -> None:
         async with ChatClient(rfapi) as bot:
             twitch_client = bot
             if not DISABLE_INTEGRATIONS:
-                command_server = CommandServer(bot, os.getenv("COMMAND_SERVER_HOST"), int(os.getenv("COMMAND_SERVER_PORT")))
+                command_server = CommandServer(
+                    bot,
+                    os.getenv("COMMAND_SERVER_HOST"),
+                    int(os.getenv("COMMAND_SERVER_PORT")),
+                )
                 asyncio.create_task(command_server.start())
             await bot.start()
-
 
     try:
         await runner()
     except KeyboardInterrupt:
         LOGGER.warning("Shutting down due to Keyboard Interrupt...")
+
 
 asyncio.run(main())
