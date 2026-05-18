@@ -2050,7 +2050,6 @@ class CommandServer:
                         {
                             "twitch_id": char_data.char.twitch_id,
                             "user_name": char_data.char.user_name,
-                            "char_index": char_data.char.index,
                             "coins": char_data.char.coins,
                         }
                     )
