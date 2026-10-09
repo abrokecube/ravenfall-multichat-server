@@ -2076,6 +2076,13 @@ class CommandServer:
                                 "amount": item.amount,
                                 "equipped": item.equipped,
                                 "soulbound": item.soulbound,
+                                "enchantments": [
+                                    {
+                                        "stat": e.stat.name,
+                                        "percentage": round(e.percentage * 100, 4),
+                                    }
+                                    for e in item.enchantments
+                                ],
                             }
                         )
                     out_data.append(
