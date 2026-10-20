@@ -1099,14 +1099,6 @@ class ChatClient(twitchio.Client):
                         get_total,
                         output_to_channel_id,
                     )
-                case "show":
-                    await self.handle_exec_as_joined(
-                        channel_id,
-                        channel_name,
-                        user_name,
-                        f"!show {args[0] if args else ''}",
-                        output_to_channel_id,
-                    )
 
         if self.user_info.get(channel_id, {}).get("is_hosting_ravenfall", False):
             match command:
