@@ -394,7 +394,9 @@ class Character:
         self.island: Islands = None
         if state['island'] != "None":
             self.island: Islands = _getitem_or_none(state['island'], Islands)
-        self.destination: Islands = _getitem_or_none(state['destination'], Islands)
+        self.destination: Islands = None
+        if state['destination'] != "None":
+            self.destination: Islands = _getitem_or_none(state['destination'], Islands)
         # self.waiting_for_ferry: bool = self.destination and self.destination == self.island
         self.waiting_for_ferry: bool = False
         self.estimated_level_time: datetime = _call_or_none(state['estimatedTimeForLevelUp'], _parse_time)
